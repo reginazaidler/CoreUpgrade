@@ -248,14 +248,17 @@
          transform:none;
          }
          .form-section { display: none; text-align: left; }
-         .back-button{
-         background:#fff;
-         color:var(--brand-navy-2);
-         border-color:var(--border);
-         padding:9px 14px;
-         margin-bottom:12px;
-         }
-         margin-bottom:12px;
+         .step-indicator{
+         display:inline-flex;
+         align-items:center;
+         padding:4px 10px;
+         border-radius:999px;
+         border:1px solid #D6DEEA;
+         background:#F6F9FD;
+         color:#4E5D78;
+         font-size:12px;
+         font-weight:600;
+         margin-bottom:10px;
          }
          .back-button:hover{
          background:#F3F6FA;
@@ -989,9 +992,9 @@
 
 <div class="page">
             <div class="container">
-               <div class="step-indicator" data-step-indicator>Page 1 of 2</div>
                <!-- Step 1 -->
                <div id="step1">
+			                  <div class="step-indicator" data-step-indicator>Page 1 of 2</div>
                   <h1>Core Upgrade Effort Estimator</h1>
 <div style="display:flex; gap:10px; margin:10px 0 20px 0; flex-wrap:wrap;">
   <button class="calculate-btn csv-btn" type="button" id="importJsonBtnStep1">Import JSON</button>
