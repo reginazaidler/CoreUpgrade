@@ -1361,7 +1361,7 @@
     </div>
 
     <div style="margin-left:auto; display:flex; gap:10px; flex-wrap:wrap;">
-      <button id="renderGanttBtn" type="button" class="calculate-btn csv-btn">Generate Gantt</button>
+      <button id="renderGanttBtn" type="button" class="calculate-btn csv-btn">Build Gantt Chart</button>
       <button id="exportGanttPngBtn" type="button" class="calculate-btn csv-btn">Export Gantt as PNG</button>
     </div>
   </div>
@@ -1373,10 +1373,11 @@
   <button class="calculate-btn csv-btn" type="button" id="exportJsonBtnResults">Export to JSON</button>
   <button class="calculate-btn csv-btn" type="button" id="importJsonBtnResults">Import JSON</button>
   <button id="generateGanttBtn" type="button" class="calculate-btn csv-btn">Generate Gantt</button>
-    <button id="downloadManagerExcelBtn" type="button" class="calculate-btn csv-btn" onclick="downloadManagerExportCsv()">Export Full Report (Excel CSV)</button>
-  <button id="downloadJiraCsvBtn" type="button" class="calculate-btn csv-btn">Download CSV for Jira</button>
-  <button id="jiraHelpBtn" type="button" class="calculate-btn csv-btn">Jira Import Instructions</button>
+    <button id="downloadManagerExcelBtn" type="button" class="calculate-btn csv-btn" onclick="downloadManagerExportCsv()">Download Full Report (CSV for Excel)</button>
+  <button id="downloadJiraCsvBtn" type="button" class="calculate-btn csv-btn">Download Jira Import CSV</button>
+  <button id="jiraHelpBtn" type="button" class="calculate-btn csv-btn">How to Import into Jira</button>
 </div>
+<div class="muted" style="text-align:center; margin-top:8px;">A .json file is a plain data file that stores your estimate so you can save it and load it later.</div>
 
                   </div>
                </div>
@@ -1454,6 +1455,10 @@ window.el = window.el || function(id){ return document.getElementById(id); };
                }
 
                function buildJsonSnapshot(){
+			   if(typeof readRiskInputsToState === "function"){
+                   try{ readRiskInputsToState(); }catch(_e){}
+                 }
+
                  const view = (typeof getCurrentView === "function") ? getCurrentView() : "step1";
                  return {
                    schemaVersion: 1,
@@ -1461,6 +1466,8 @@ window.el = window.el || function(id){ return document.getElementById(id); };
                    view,
                    state: jsonClone(state) || {},
                    domValues: collectDomFormValues(),
+				   interfacesRows: (typeof collectInterfacesState === "function") ? collectInterfacesState() : [],
+                   techImpactRows: (typeof collectTechImpactState === "function") ? collectTechImpactState() : [],
                    autoCounts: jsonClone(window.autoCounts || null),
                    autoDetails: jsonClone(window.autoDetails || null)
                  };
@@ -1501,7 +1508,10 @@ window.el = window.el || function(id){ return document.getElementById(id); };
 
                  if(typeof updateToOptionsFromFromSelection === "function") updateToOptionsFromFromSelection();
                  applyDomFormValues(incoming.domValues || {});
+				 if(typeof applyInterfacesState === "function") applyInterfacesState(incoming.interfacesRows || []);
                  if(typeof updateUpgradeScopeFromRange === "function") updateUpgradeScopeFromRange();
+				 if(typeof updateTechDashboard === "function") updateTechDashboard();
+                 if(typeof applyTechImpactState === "function") applyTechImpactState(incoming.techImpactRows || []);
                  if(typeof wireManualTasks === "function") wireManualTasks();
 
                  const view = String(incoming.view || "step2");
@@ -1513,7 +1523,24 @@ window.el = window.el || function(id){ return document.getElementById(id); };
                  } else {
                    if(typeof showStep === "function") showStep(1);
                  }
+				 
+				 // Some controls (for example Global Buffer) are rendered during results refresh.
+                 // Reapply captured DOM values after view restoration to avoid being overwritten.
+                 applyDomFormValues(incoming.domValues || {});
 
+                 // Re-applying generic DOM values can trigger dependent re-renders (core range changes,
+                 // interfaces toggle, etc.) that recreate UI rows and wipe previously-restored values.
+                 // Restore specialized state again after that final DOM replay.
+                 if(typeof updateTechDashboard === "function") updateTechDashboard();
+                 if(typeof applyTechImpactState === "function") applyTechImpactState(incoming.techImpactRows || []);
+                 if(typeof applyInterfacesState === "function") applyInterfacesState(incoming.interfacesRows || []);
+
+                 if(typeof readRiskInputsToState === "function"){
+                   try{ readRiskInputsToState(); }catch(_e){}
+                 }
+                 if(typeof applyOverridesAndRefresh === "function" && String(incoming.view || "") === "results"){
+                   try{ applyOverridesAndRefresh(); }catch(_e){}
+                 }
                  if(typeof window.__decorateDetailedBreakdown === "function"){
                    try{ window.__decorateDetailedBreakdown(); }catch(_e){}
                  }
@@ -4370,6 +4397,59 @@ genBtn.addEventListener('click', async function(){
                    const typeEl = row.querySelector(".interface-type");
                    const qtyEl = row.querySelector(".interface-qty");
                    return { type: typeEl ? typeEl.value : "simple", qty: qtyEl ? (parseInt(qtyEl.value, 10) || 0) : 0 };
+                 });
+               }
+			   function applyInterfacesState(rows){
+                 const table = document.getElementById("interfacesTable");
+                 if(!table) return;
+
+                 const normalizedRows = Array.isArray(rows) ? rows : [];
+                 table.querySelectorAll("tr.interface-row").forEach((r) => r.remove());
+
+                 if(!normalizedRows.length) return;
+                 normalizedRows.forEach((entry) => {
+                   if(typeof addInterfaceRow === "function") addInterfaceRow();
+                   const row = table.querySelector("tr.interface-row:last-of-type");
+                   if(!row) return;
+
+                   const typeEl = row.querySelector(".interface-type");
+                   const qtyEl = row.querySelector(".interface-qty");
+                   if(typeEl) typeEl.value = String(entry && entry.type ? entry.type : "simple");
+                   if(qtyEl) qtyEl.value = Number.isFinite(Number(entry && entry.qty)) ? String(Number(entry.qty)) : "0";
+                 });
+               }
+
+               function collectTechImpactState(){
+                 const rows = document.querySelectorAll("#techStackFullTbody tr");
+                 return Array.from(rows).map((row) => {
+                   const cells = row.querySelectorAll("td");
+                   const area = String(cells[0]?.textContent || "").trim();
+                   const dev = !!row.querySelector('input[data-tech-impact="dev"]')?.checked;
+                   const devops = !!row.querySelector('input[data-tech-impact="devops"]')?.checked;
+                   if(!area) return null;
+                   return { area, dev, devops };
+                 }).filter(Boolean);
+               }
+
+               function applyTechImpactState(rows){
+                 const lookup = new Map();
+                 if(Array.isArray(rows)){
+                   rows.forEach((entry) => {
+                     const key = String(entry && entry.area ? entry.area : "").trim();
+                     if(!key) return;
+                     lookup.set(key, { dev: !!entry.dev, devops: !!entry.devops });
+                   });
+                 }
+
+                 document.querySelectorAll("#techStackFullTbody tr").forEach((row) => {
+                   const area = String(row.querySelector("td")?.textContent || "").trim();
+                   if(!area || !lookup.has(area)) return;
+                   const saved = lookup.get(area);
+
+                   const devEl = row.querySelector('input[data-tech-impact="dev"]');
+                   const devopsEl = row.querySelector('input[data-tech-impact="devops"]');
+                   if(devEl) devEl.checked = !!saved.dev;
+                   if(devopsEl) devopsEl.checked = !!saved.devops;
                  });
                }
 
