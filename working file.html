@@ -1235,26 +1235,6 @@
   </button>
 </div>
 
-<!-- Risk and Buffer -->
-                     <div class="section-card" id="riskBufferCard">
-                        <div class="section-title">
-                           <h4>Risk and Buffer</h4>
-                           <span class="badge">RISK</span>
-                        </div>
-                        <p class="section-hint">
-                           Add a global buffer percentage
-                        </p>
-                        <table class="form-table">
-                           <tr>
-                              <td>Global Buffer %</td>
-                              <td><input class="input-sm" type="number" id="globalBufferPct" min="0" step="1" value="0" /></td>
-                           </tr>
-                           <tr>
-                              <td>Buffer Reason</td>
-                              <td><input class="input-sm" type="text" id="bufferReason" placeholder="Optional short reason" /></td>
-                           </tr>
-                        </table>
-</div>
 
                      </div>
 				  </div>
@@ -1476,7 +1456,9 @@ window.el = window.el || function(id){ return document.getElementById(id); };
                  Object.keys(state).forEach((k) => { delete state[k]; });
                  Object.assign(state, importedState);
 
-                 if(!state.risk || typeof state.risk !== "object") state.risk = { globalBufferPct: 0, bufferReason: "", rowBufferPctById: {} };
+                 if(!state.risk || typeof state.risk !== "object") state.risk = { globalBufferMode: "pct", globalBufferPct: 0, globalBufferMd: 0, bufferReason: "", rowBufferPctById: {} };
+                 if(!state.risk.globalBufferMode) state.risk.globalBufferMode = "pct";
+                 if(!Number.isFinite(Number(state.risk.globalBufferMd))) state.risk.globalBufferMd = 0;
                  if(!state.overrides || typeof state.overrides !== "object") state.overrides = { enabledById: {}, mdById: {}, notesById: {} };
                  if(!Array.isArray(state.manualTasks)) state.manualTasks = [];
                }
@@ -2009,9 +1991,7 @@ function generateCSV(parentKey) {
       "Components",
       "Affects versions",
       "Custom field (Sapiens Product)",
-      "Custom field (Sapiens Severity SLA)",
-      "Custom field (Project Phase)",
-      "Custom field (Competence Center)"
+           "Competence Center"
     ].map(csvEscape).join(","));
 
     let exportedCount = 0;
@@ -2056,26 +2036,17 @@ function generateCSV(parentKey) {
         ? totalFromCell
         : safeNum((overrideEnabled ? overrideMdVal : baseMd), 0);
 
-      const summaryBase = stripHelpIconSuffix(
-        (String(phase).trim() ? String(phase).trim() + " - " : "") + String(workItem).trim()
-      );
-      const summary = summaryBase || "Sub-task";
+      
 
-      const description = buildDescription({
-        phase,
-        subPhase,
-        workItem,
-        qty,
-        rate,
-        baseMd,
-        overrideEnabled,
-        overrideMdVal,
-        notes,
-        bufferPct: 0,
-        bufferMd: 0,
-        bufferReason: "",
-        totalMd
-      });
+     const summaryParts = [phase, subPhase, workItem]
+        .map((v) => stripHelpIconSuffix(v))
+        .map((v) => String(v || "").trim())
+        .filter(Boolean);
+      const summary = summaryParts.join("	") || "Sub-task";
+
+      const notesClean = String(notes || "").trim();
+      const description = notesClean ? `${summary}
+${notesClean}` : summary;
 
       const row = [
         "Sub-task",
@@ -2085,8 +2056,6 @@ function generateCSV(parentKey) {
         defaults.components,
         defaults.affectsVersions,
         defaults.sapiensProduct,
-        defaults.sapiensSeveritySla,
-        defaults.projectPhase,
         defaults.competenceCenter
       ];
 
@@ -2413,11 +2382,20 @@ function readRiskInputsToState(){
   if(!window.state) return;
   if(!state.risk) state.risk = {};
 
-  const pctEl = document.getElementById("globalBufferPct");
-  const reasonEl = document.getElementById("bufferReason");
+const modeEl = document.getElementById("globalBufferMode");
+  const valueEl = document.getElementById("globalBufferValue");
+  const pctEl = document.getElementById("globalBufferPct"); // backward compatibility
+  const mdEl = document.getElementById("globalBufferMd");   // backward compatibility
+  const reasonEl = document.getElementById("bufferReason") || document.getElementById("globalBufferNotes");
 
-  const pct = pctEl ? Number(pctEl.value) : 0;
-  state.risk.globalBufferPct = Number.isFinite(pct) ? pct : 0;
+  const mode = modeEl ? String(modeEl.value || "pct") : (state.risk.globalBufferMode || "pct");
+  const rawValue = valueEl ? Number(valueEl.value) : null;
+  const pct = pctEl ? Number(pctEl.value) : (mode === "pct" ? rawValue : Number(state.risk.globalBufferPct));
+  const md = mdEl ? Number(mdEl.value) : (mode === "md" ? rawValue : Number(state.risk.globalBufferMd));
+
+  state.risk.globalBufferMode = (mode === "md") ? "md" : "pct";
+  state.risk.globalBufferPct = Number.isFinite(pct) && pct >= 0 ? pct : 0;
+  state.risk.globalBufferMd = Number.isFinite(md) && md >= 0 ? md : 0;
   state.risk.bufferReason = reasonEl ? String(reasonEl.value || "") : "";
 };
 
@@ -2521,7 +2499,6 @@ function applyOverridesAndRefresh(){
 
                  wireOverrideInputs();
 
-                 const gb = Number(state.risk.globalBufferPct) || 0;
 
                  // Recompute totals from base rows + overrides + global buffer
                  const calcItems = state.lastCalc.baseRows.map((r, idx) => {
@@ -2536,7 +2513,7 @@ function applyOverridesAndRefresh(){
 
                    const effectiveBase = (overrideEnabled && hasOverrideValue) ? overrideMd : originalBase;
 
-                   const bufferMd = effectiveBase * (gb / 100);
+                   const bufferMd = 0;
                    const totalMd = effectiveBase + bufferMd;
 
                    const notes = String(state.overrides.notesById[rowId] || r.notes || "");
@@ -2556,7 +2533,7 @@ function applyOverridesAndRefresh(){
                      overrideMd: (overrideEnabled && hasOverrideValue) ? overrideMd : null,
                      notes: notes,
 
-                     bufferPct: gb,
+                     bufferPct: 0,
                      bufferMd: bufferMd,
                      totalMd: totalMd
                    };
@@ -2601,6 +2578,16 @@ function applyOverridesAndRefresh(){
 
                  const items = calcItems.concat(userItems);
                  const itemById = Object.fromEntries(items.map((it) => [String(it.id), it]));
+const subtotalWithoutBuffer = items.reduce((s, it) => s + (Number(it.baseMd) || 0), 0);
+                 const __buf = computeGlobalBufferMd(subtotalWithoutBuffer);
+                 const bufferTotal = Number(__buf.md) || 0;
+                 items.forEach((it) => {
+                   const base = Number(it.baseMd) || 0;
+                   const distributed = subtotalWithoutBuffer > 0 ? (bufferTotal * (base / subtotalWithoutBuffer)) : 0;
+                   it.bufferPct = Number(__buf.pct) || 0;
+                   it.bufferMd = distributed;
+                   it.totalMd = base + distributed;
+                 });
 
                  // Update table cells (Base MD stays original, Total is buffered total)
                  const rows = Array.from(tbody.querySelectorAll("tr"));
@@ -2630,8 +2617,7 @@ function applyOverridesAndRefresh(){
                    }
                  });
 
-                 const subtotalWithoutBuffer = items.reduce((s, it) => s + (Number(it.baseMd) || 0), 0);
-                 const bufferTotal = items.reduce((s, it) => s + (Number(it.bufferMd) || 0), 0);
+                 
                  const grandTotal = subtotalWithoutBuffer + bufferTotal;
 
                  // Update UI totals
@@ -2639,6 +2625,12 @@ function applyOverridesAndRefresh(){
                    el("totalEffort").textContent = "Total " + Math.round(grandTotal) + " MD";
                    updateExecutiveSummaryTiles();
                  }
+const pctCell = document.getElementById("bufferPctDisplay");
+                 if(pctCell) pctCell.textContent = (Number(__buf.pct) || 0).toFixed(1) + "%";
+                 const mdCell = document.getElementById("bufferMdDisplay");
+                 if(mdCell) mdCell.textContent = (Number(bufferTotal) || 0).toFixed(1);
+                 const totalInclCell = document.getElementById("totalInclBufferDisplay");
+                 if(totalInclCell) totalInclCell.textContent = (Number(grandTotal) || 0).toFixed(1);
 
                  
                  // Update phase summary (based on overridden totals)
@@ -2666,7 +2658,9 @@ function applyOverridesAndRefresh(){
                      grandWithBuffer: grandTotal
                    },
                    risk: {
+                     globalBufferMode: state.risk.globalBufferMode,
                      globalBufferPct: state.risk.globalBufferPct,
+                     globalBufferMd: state.risk.globalBufferMd,
                      bufferReason: state.risk.bufferReason
                    },
                    items: items,
@@ -2708,10 +2702,20 @@ function calculateAndScroll(){
 }
 
 function computeGlobalBufferMd(totalDevMd){
+  const total = Number(totalDevMd) || 0;
+  const mode = (window.state && state.risk) ? String(state.risk.globalBufferMode || "pct") : "pct";
   const pct = (window.state && state.risk) ? (Number(state.risk.globalBufferPct) || 0) : 0;
-  if(!Number.isFinite(pct) || pct <= 0) return { pct: 0, md: 0 };
-  const md = (Number(totalDevMd) || 0) * (pct / 100.0);
-  return { pct: pct, md: md };
+  const mdValue = (window.state && state.risk) ? (Number(state.risk.globalBufferMd) || 0) : 0;
+
+  if(mode === "md"){
+    const md = Number.isFinite(mdValue) && mdValue > 0 ? mdValue : 0;
+    const effectivePct = total > 0 ? ((md / total) * 100) : 0;
+    return { mode: "md", pct: effectivePct, md: md };
+  }
+
+  if(!Number.isFinite(pct) || pct <= 0) return { mode: "pct", pct: 0, md: 0 };
+  const md = total * (pct / 100.0);
+  return { mode: "pct", pct: pct, md: md };
 }
 
 
@@ -2737,9 +2741,11 @@ function computeGlobalBufferMd(totalDevMd){
                  setText("tileBuild", getMd("Build & System test"));
                  setText("tileCustomer", getMd("Customer testing"));
 
-                 // Prefer buffer MD row if present
-                 const bufferMd = getMd("Global Buffer (MD)");
-                 setText("tileBufferMd", bufferMd);
+                 const totalText = document.getElementById("totalEffort")?.textContent || "";
+                 const totalNum = Number((totalText.match(/([0-9]+(?:\.[0-9]+)?)/) || [])[1] || 0);
+                 const baseTotal = state?.lastCalc?.baseRows ? state.lastCalc.baseRows.reduce((s, r) => s + (Number(r.baseMd) || 0), 0) : totalNum;
+                 const buf = computeGlobalBufferMd(baseTotal);
+                 setText("tileBufferMd", (Number(buf.md) || 0).toFixed(1));
                }
 
 function calculateEffort() {
@@ -3174,9 +3180,22 @@ const detailedBody = document.querySelector("#detailedTable tbody");
     "<td colspan='5'><strong>TOTAL DEV EFFORT</strong></td>" +
     "<td><strong>" + grandTotal.toFixed(1) + "</strong></td>" +
   "</tr>" +
-  "<tr><td colspan='5'>Global Buffer %</td><td>" + (__buf.pct ? (__buf.pct.toFixed(0) + '%') : '0%') + "</td></tr>" +
-  "<tr><td colspan='5'>Global Buffer (MD)</td><td>" + (__buf.md ? __buf.md.toFixed(1) : '0.0') + "</td></tr>" +
-  "<tr><td colspan='5'><strong>Total (incl. buffer)</strong></td><td><strong>" + totalDevWithBuffer.toFixed(1) + "</strong></td></tr>";
+  "<tr>" +
+    "<td colspan='5'>Global Buffer</td>" +
+    "<td>" +
+      "<div style='display:flex; gap:8px; align-items:center; justify-content:flex-end; flex-wrap:wrap;'>" +
+        "<select id='globalBufferMode' class='input-sm' style='width:88px;'>" +
+          "<option value='pct'" + ((state.risk.globalBufferMode || 'pct') === 'pct' ? " selected" : "") + ">% </option>" +
+          "<option value='md'" + ((state.risk.globalBufferMode || 'pct') === 'md' ? " selected" : "") + ">MD</option>" +
+        "</select>" +
+        "<input id='globalBufferValue' class='input-sm' type='number' min='0' step='0.1' style='width:110px; text-align:right;' value='" + (((state.risk.globalBufferMode || 'pct') === 'md' ? (Number(state.risk.globalBufferMd)||0) : (Number(state.risk.globalBufferPct)||0))) + "' />" +
+      "</div>" +
+    "</td>" +
+  "</tr>" +
+  "<tr><td colspan='5'>Global Buffer %</td><td id='bufferPctDisplay'>" + ((__buf.pct && Number.isFinite(__buf.pct)) ? (__buf.pct.toFixed(1) + '%') : '0%') + "</td></tr>" +
+  "<tr><td colspan='5'>Global Buffer (MD)</td><td id='bufferMdDisplay'>" + (__buf.md ? __buf.md.toFixed(1) : '0.0') + "</td></tr>" +
+  "<tr><td colspan='5'>Notes / Assumptions</td><td><input id='globalBufferNotes' class='input-sm' type='text' placeholder='Optional notes' value='" + escapeHtml(String(state.risk.bufferReason || '')) + "' style='width:100%;' /></td></tr>" +
+  "<tr><td colspan='5'><strong>Total (incl. buffer)</strong></td><td><strong id='totalInclBufferDisplay'>" + totalDevWithBuffer.toFixed(1) + "</strong></td></tr>";
 
                // Append manual tasks into the detailed breakdown (so they are part of the plan)
                if(Array.isArray(state.manualTasks) && state.manualTasks.length){
@@ -3298,6 +3317,7 @@ el("resultsSection").style.display = "block";
                };
 
                // Apply buffer and refresh results (executive summary, phase summary, detailed, CSV data)
+			   wireBufferInputs();
                applyOverridesAndRefresh();
 
 }
@@ -3555,20 +3575,29 @@ function wireCoreVersionDependency(){
 
 
 
-(function wireBufferInputs(){
-  const pctEl = document.getElementById("globalBufferPct");
-  const reasonEl = document.getElementById("bufferReason");
-  if(!pctEl && !reasonEl) return;
+function wireBufferInputs(){
+  const modeEl = document.getElementById("globalBufferMode");
+  const valueEl = document.getElementById("globalBufferValue");
+  const reasonEl = document.getElementById("globalBufferNotes") || document.getElementById("bufferReason");
+  if(!modeEl && !valueEl && !reasonEl) return;
+
+  function syncPlaceholder(){
+    if(!valueEl || !modeEl) return;
+    valueEl.placeholder = modeEl.value === "md" ? "e.g. 18" : "e.g. 10";
+  }
 
   function onChange(){
+  syncPlaceholder();
     readRiskInputsToState();
     if(typeof applyOverridesAndRefresh === "function"){
       applyOverridesAndRefresh(); // updates totals and buffer rows
     }
   }
-  if(pctEl) pctEl.addEventListener("input", onChange);
-  if(reasonEl) reasonEl.addEventListener("input", onChange);
-})();
+  if(modeEl && !modeEl.__bufWired){ modeEl.__bufWired = true; modeEl.addEventListener("change", onChange); }
+  if(valueEl && !valueEl.__bufWired){ valueEl.__bufWired = true; valueEl.addEventListener("input", onChange); }
+  if(reasonEl && !reasonEl.__bufWired){ reasonEl.__bufWired = true; reasonEl.addEventListener("input", onChange); }
+  syncPlaceholder();
+}
 
 
 function wireAutoDetailsToggles() {
@@ -3587,6 +3616,7 @@ document.addEventListener("DOMContentLoaded", function(){
                   wireAutoDetailsToggles();
                   wireStep1Navigation();
 				  wireJsonImportExport();
+				                    wireBufferInputs();
                });
 
 
@@ -4653,7 +4683,7 @@ function wireStep1Navigation(){
     "<td><input class='detailed-input detailed-input-sm' type='number' min='0' step='1' value='1' data-user-qty='1' /></td>" +
     "<td><input class='detailed-input detailed-input-sm' placeholder='Rate' data-user-rate='1' /></td>" +
     "<td><input class='detailed-input detailed-input-md' type='number' min='0' step='0.5' value='0' data-user-base-md='1' /></td>" +
-    "<td style='text-align:center;'><input type='checkbox' class='checkbox-sm' data-user-override='1' disabled /></td>" +
+    "<td style='text-align:center;'><input type='checkbox' class='checkbox-sm' data-user-override='1' /></td>" +
     "<td><input class='detailed-input detailed-input-md' type='number' min='0' step='0.5' value='' disabled data-user-override-md='1' /></td>" +
     "<td><input class='detailed-input' placeholder='Notes and assumptions' data-user-notes='1' /></td>" +
     "<td data-user-total='1'>0.0</td>";
@@ -4664,16 +4694,16 @@ function wireStep1Navigation(){
   const base = tr.querySelector('[data-user-base-md="1"]');
 
   function onChange(){
-     if(cb){
-      cb.checked = false;
-      cb.disabled = true;
-    }
-    if(ov){
-      ov.value = "";
-      ov.disabled = true;
-    }
+    
     setRowTotal(tr);
     recomputeGrandTotal();
+  }
+  if(cb){
+    cb.addEventListener("change", function(){
+      if(ov) ov.disabled = !cb.checked;
+      setRowTotal(tr);
+      recomputeGrandTotal();
+    });
   }
 
   if(ov) ov.addEventListener("input", onChange);
