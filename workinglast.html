@@ -1853,13 +1853,9 @@ function updateToOptionsFromFromSelection() {
     toSel.appendChild(opt);
   });
 
-  // Keep previous To if still valid, otherwise default to first allowed (next version)
+  // Keep previous To if still valid, otherwise keep empty to enforce explicit user selection
   const stillValid = Array.from(toSel.options).some(o => o.value === prevTo);
-  if(stillValid) {
-    toSel.value = prevTo;
-  } else if(toSel.options.length) {
-    toSel.value = toSel.options[0].value;
-  }
+    toSel.value = stillValid ? prevTo : "";
 }
 
 function escapeHtml(s) {
@@ -3390,7 +3386,7 @@ const detailedBody = document.querySelector("#detailedTable tbody");
     "<td><strong>" + grandTotal.toFixed(1) + "</strong></td>" +
   "</tr>" +
   "<tr>" +
-    "<td colspan='5'>Global Buffer</td>" +
+    "<td colspan='5'>Global Buffer / Sick Leaves</td>" +
     "<td>" +
       "<div style='display:flex; gap:6px; align-items:center; justify-content:flex-end; flex-wrap:nowrap;'>" +
 	   "<input id='globalBufferValue' class='input-sm' type='number' min='0' step='0.1' style='width:110px; text-align:right;' value='" + (((state.risk.globalBufferMode || 'pct') === 'md' ? (Number(state.risk.globalBufferMd)||0) : (Number(state.risk.globalBufferPct)||0))) + "' />" +
@@ -3727,6 +3723,11 @@ function rebuildCoreToOptions(){
   const fromNum = coreKeyToNumber(fromVal);
 
   toSel.innerHTML = "";
+  
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = "Select...";
+  toSel.appendChild(placeholder);
 
   // allow TO >= FROM by default (can be changed to > if needed)
   const allowed = CORE_VERSIONS.filter(o => {
@@ -3742,10 +3743,8 @@ function rebuildCoreToOptions(){
     toSel.appendChild(opt);
   });
 
-  // pick sensible default: same as from if exists, else first
-  const same = allowed.find(x => x.key === fromVal);
-  if(same) toSel.value = fromVal;
-  else if(allowed.length) toSel.value = allowed[0].key;
+  // keep TO empty to enforce explicit selection
+  toSel.value = "";
 
   // trigger downstream updates if exist
   if(typeof updateTechDashboard === "function") updateTechDashboard();
@@ -3768,7 +3767,6 @@ function wireCoreVersionDependency(){
     rebuildCoreToOptions();
   });
 }
-// --- End Patch ---
 
 (function wireCoreFromToHandlers(){
   const fromSel = document.getElementById("coreFrom");
@@ -3777,7 +3775,6 @@ function wireCoreVersionDependency(){
 
   // Initial
   updateToOptionsFromFromSelection();
-  if(!toSel.value && toSel.options.length){ toSel.value = toSel.options[0].value; }
   updateUpgradeScopeFromRange();
 
   fromSel.addEventListener("change", function(){
@@ -3785,7 +3782,6 @@ function wireCoreVersionDependency(){
     updateToOptionsFromFromSelection();
     const stillValid = Array.from(toSel.options).some(o => o.value === prevTo);
     if(stillValid) toSel.value = prevTo;
-    if(!toSel.value && toSel.options.length){ toSel.value = toSel.options[0].value; }
     updateUpgradeScopeFromRange();
   });
 
@@ -4943,7 +4939,7 @@ function applyAutoCountsToInputs(){
     setNum("merges", window.autoCounts.merges);
   }
 }
-// --- End Patch ---
+
 
 }
 
@@ -4953,22 +4949,25 @@ function goBack(){
 
 function wireStep1Navigation(){
   const nextBtn = document.getElementById("nextBtn");
-  const upgradeType = document.getElementById("upgradeType");
-
-  if(upgradeType && !upgradeType.value){
-    // sensible default
-    upgradeType.value = "major";
-  }
+const fromSel = document.getElementById("coreFrom");
+  const toSel = document.getElementById("coreTo");
+  if(fromSel) fromSel.required = true;
+  if(toSel) toSel.required = true;
 
   const refresh = () => {
     if(!nextBtn) return;
-    const v = upgradeType ? String(upgradeType.value || "").trim() : "";
-    nextBtn.disabled = !v;
+    const fromVal = fromSel ? String(fromSel.value || "").trim() : "";
+    const toVal = toSel ? String(toSel.value || "").trim() : "";
+    nextBtn.disabled = !(fromVal && toVal);
   };
 
-  if(upgradeType){
-    upgradeType.addEventListener("change", refresh);
-    upgradeType.addEventListener("input", refresh);
+  if(fromSel){
+    fromSel.addEventListener("change", refresh);
+    fromSel.addEventListener("input", refresh);
+  }
+  if(toSel){
+    toSel.addEventListener("change", refresh);
+    toSel.addEventListener("input", refresh);
   }
 
   if(nextBtn){
@@ -4978,12 +4977,12 @@ function wireStep1Navigation(){
       showStep(2);
     
       
-      if(typeof applyAutoCountsToInputs==="function"){ applyAutoCountsToInputs(); }applyAutoCountsToInputs();});
-  }
-
+      if(typeof applyAutoCountsToInputs === "function") applyAutoCountsToInputs();
+	  });
+}
   refresh();
 }
-// --- End Patch ---
+
 
 
 /* --- Editable task breakdown: add row below (user tasks inside table) --- */
