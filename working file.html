@@ -338,7 +338,7 @@
          margin-top:6px;
 		 border:1px solid #E9EEF5;
          border-radius:10px;
-         overflow:hidden;
+         overflow:visible;
          }
          /* interfaces rows table: 3 columns (type / qty / remove) */
          .interfaces-table{
@@ -754,14 +754,24 @@
 }
 .details-list{
   max-height: 180px;
-  overflow:auto;
+    overflow-y:auto;
+  overflow-x:hidden;
   background:#fff;
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 10px 10px;
+  padding: 8px;
   font-size: 12px;
   line-height: 1.45;
-  white-space: pre-wrap;
+}
+.details-list .details-item{
+  padding: 4px 6px;
+  border-radius: 6px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.details-list .details-item:nth-child(odd){
+  background: #f7fbff;
 }
 .details-empty{
   color: var(--muted);
@@ -1258,6 +1268,26 @@
     <!-- Results -->
                <div id="resultsSection" style="display:none;">
                   <div class="results">
+				  
+				       <div id="detailedBreakdownSection" style="margin-top: 22px;">
+  <div style="font-weight: 700; color: var(--brand-navy-2); padding: 10px; background: #f8f9fa; border-radius: 8px;">Editable task breakdown</div>
+<table class="detailed-table" id="detailedTable" style="margin-top: 15px;">
+                           <thead>
+                              <tr>
+                                  <th>Phase</th>
+                                  <th>Sub phase</th>
+                                  <th>Work Items</th>
+                                  <th>Qty</th>
+                                  <th>Rate</th>
+                                  <th>Base MD</th>
+                                  <th>Override</th>
+                                  <th>Override MD</th>
+                                  <th>Notes and assumptions</th>
+                                  <th>Total in MD</th></tr>
+                           </thead>
+                           <tbody></tbody>
+                        </table>
+                     </div>
                      <h3 style="color:var(--text); margin-bottom: 12px;">Estimation Results</h3>
 
                      <div class="summary-tiles" id="summaryTiles" aria-label="Executive summary">
@@ -1293,25 +1323,7 @@
                         </thead>
                         <tbody id="phaseSummary"></tbody>
                      </table>
-                     <div id="detailedBreakdownSection" style="margin-top: 22px;">
-  <div style="font-weight: 700; color: var(--brand-navy-2); padding: 10px; background: #f8f9fa; border-radius: 8px;">Editable task breakdown</div>
-<table class="detailed-table" id="detailedTable" style="margin-top: 15px;">
-                           <thead>
-                              <tr>
-                                  <th>Phase</th>
-                                  <th>Sub phase</th>
-                                  <th>Work Items</th>
-                                  <th>Qty</th>
-                                  <th>Rate</th>
-                                  <th>Base MD</th>
-                                  <th>Override</th>
-                                  <th>Override MD</th>
-                                  <th>Notes and assumptions</th>
-                                  <th>Total in MD</th></tr>
-                           </thead>
-                           <tbody></tbody>
-                        </table>
-                     </div>
+                     
                      <div id="executiveSummary" class="note" style="margin-top:10px; margin-bottom:10px; display:none;"></div>
 
 <div id="ganttCard" class="section-card" style="margin-top:12px; display:none;">
@@ -1343,9 +1355,20 @@
         <option value="subPhase">Sub phase</option>
       </select>
     </div>
+	
+	 <div style="min-width:230px;">
+      <label for="ganttCountries">Holiday calendars (optional)</label>
+      <select class="input-sm" id="ganttCountries" multiple size="4" style="height:auto;">
+        <option value="IN">India</option>
+        <option value="PL">Poland</option>
+        <option value="DE">Germany</option>
+        <option value="IL">Israel</option>
+      </select>
+      <div class="muted">Use Ctrl/Cmd + click for multi-select. Public holidays + local weekends are skipped.</div>
+    </div>
 
     <div style="margin-left:auto; display:flex; gap:10px; flex-wrap:wrap;">
-      <button id="renderGanttBtn" type="button" class="calculate-btn csv-btn">Render Gantt</button>
+      <button id="renderGanttBtn" type="button" class="calculate-btn csv-btn">Generate Gantt</button>
       <button id="exportGanttPngBtn" type="button" class="calculate-btn csv-btn">Export Gantt as PNG</button>
     </div>
   </div>
@@ -1357,6 +1380,8 @@
   <button class="calculate-btn csv-btn" type="button" id="exportJsonBtnResults">Export to JSON</button>
   <button class="calculate-btn csv-btn" type="button" id="importJsonBtnResults">Import JSON</button>
   <button id="generateGanttBtn" type="button" class="calculate-btn csv-btn">Generate Gantt</button>
+    <button id="downloadManagerExcelBtn" type="button" class="calculate-btn csv-btn" onclick="downloadManagerExportCsv()">Export Full Report (Excel CSV)</button>
+	  <button id="shareManagerEmailBtn" type="button" class="calculate-btn csv-btn" onclick="openManagerEmailDraft()">Draft Manager Email</button>
   <button id="downloadJiraCsvBtn" type="button" class="calculate-btn csv-btn">Download CSV for Jira</button>
   <button id="jiraHelpBtn" type="button" class="calculate-btn csv-btn">Jira Import Instructions</button>
 </div>
@@ -1867,6 +1892,149 @@ function csvEscape(value) {
   return needsQuotes ? '"' + escaped + '"' : escaped;
 }
 
+function getDetailedTableRowsForManagerExport() {
+  const tbody = document.querySelector("#detailedTable tbody");
+  if (!tbody) throw new Error("Detailed breakdown table not found.");
+
+  const rows = [];
+  const trs = Array.from(tbody.querySelectorAll("tr"));
+  trs.forEach((tr) => {
+    if (tr.classList.contains("table-section-header")) return;
+
+    const tds = Array.from(tr.querySelectorAll("td"));
+    if (!tds.length) return;
+
+    const getCellText = (cell) => {
+      if (!cell) return "";
+      const clone = cell.cloneNode(true);
+      clone.querySelectorAll(".help-icon, .row-add-btn, .row-del-btn, button, input, textarea, select").forEach((n) => n.remove());
+      return String(clone.innerText || "").replace(/\s+/g, " ").trim();
+    };
+
+    const getInputValue = (cell) => {
+      if (!cell) return "";
+      const control = cell.querySelector("input, textarea, select");
+      return control ? String(control.value || "").trim() : "";
+    };
+
+    rows.push({
+      phase: getInputValue(tds[0]) || getCellText(tds[0]),
+      subPhase: getInputValue(tds[1]) || getCellText(tds[1]),
+      workItem: getInputValue(tds[2]) || getCellText(tds[2]),
+      qty: getInputValue(tds[3]) || getCellText(tds[3]),
+      rate: getInputValue(tds[4]) || getCellText(tds[4]),
+      baseMd: getInputValue(tds[5]) || getCellText(tds[5]),
+      overrideEnabled: tds[6] && tds[6].querySelector('input[type="checkbox"]') ? (tds[6].querySelector('input[type="checkbox"]').checked ? "Yes" : "No") : "",
+      overrideMd: getInputValue(tds[7]) || getCellText(tds[7]),
+      notes: getInputValue(tds[8]) || getCellText(tds[8]),
+      totalMd: getCellText(tds[9]) || getInputValue(tds[9])
+    });
+  });
+
+  if (!rows.length) {
+    throw new Error("No rows to export. Please calculate effort first.");
+  }
+
+  return rows;
+}
+
+function downloadManagerExportCsv() {
+  try {
+    const rows = getDetailedTableRowsForManagerExport();
+    const header = [
+      "Upgrade type",
+      "Phase",
+      "Sub phase",
+      "Work item",
+      "Qty",
+      "Rate",
+      "Base MD",
+      "Override",
+      "Override MD",
+      "Notes",
+      "Total MD"
+    ];
+
+    const upgradeType = (state.lastCalc && state.lastCalc.upgradeTypeLabel) || "";
+    const csvLines = [header.map(csvEscape).join(",")];
+
+    rows.forEach((row) => {
+      csvLines.push([
+        excelSafeText(upgradeType),
+        excelSafeText(row.phase),
+        excelSafeText(row.subPhase),
+        excelSafeText(row.workItem),
+        excelSafeText(row.qty),
+        excelSafeText(row.rate),
+        excelSafeText(row.baseMd),
+        excelSafeText(row.overrideEnabled),
+        excelSafeText(row.overrideMd),
+        excelSafeText(row.notes),
+        excelSafeText(row.totalMd)
+      ].map(csvEscape).join(","));
+    });
+
+    const blob = new Blob([csvLines.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `Manager_Report_${new Date().toISOString().slice(0, 10)}.csv`;
+
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    setTimeout(() => {
+      try { URL.revokeObjectURL(link.href); } catch (e) {}
+    }, 0);
+  } catch (err) {
+    console.error(err);
+    alert("Manager export failed: " + (err && err.message ? err.message : String(err)));
+  }
+}
+
+function openManagerEmailDraft() {
+  try {
+    const rows = getDetailedTableRowsForManagerExport();
+    const upgradeType = (state.lastCalc && state.lastCalc.upgradeTypeLabel) || "";
+
+    const totalMd = rows.reduce((sum, row) => {
+      const n = parseFloat(String(row.totalMd || "").replace(",", "."));
+      return sum + (Number.isFinite(n) ? n : 0);
+    }, 0);
+
+    const topRows = rows
+      .filter((r) => String(r.workItem || "").trim())
+      .slice(0, 8)
+      .map((r) => `- ${r.phase || "N/A"} | ${r.workItem} | ${r.totalMd || "0"} MD`)
+      .join("\n");
+
+    const subject = encodeURIComponent("Core Upgrade effort summary");
+    const body = [
+      "Hi,",
+      "",
+      "Attached is the full effort report exported from the estimator.",
+      "",
+      `Upgrade type: ${upgradeType || "N/A"}`,
+      `Total estimated effort: ${totalMd.toFixed(1)} MD`,
+      `Number of detailed rows: ${rows.length}`,
+      "",
+      "Top lines:",
+      topRows,
+      "",
+      "Please see the attached Excel CSV for the full breakdown.",
+      ""
+    ].join("\n");
+
+    window.location.href = `mailto:?subject=${subject}&body=${encodeURIComponent(body)}`;
+  } catch (err) {
+    console.error(err);
+    alert("Could not generate manager email draft: " + (err && err.message ? err.message : String(err)));
+  }
+}
+
+
+
 
 function buildDescription(ctx) {
   // Minimal Jira description builder. Keep simple and stable.
@@ -2216,6 +2384,7 @@ function togglePerformanceMdRow(){
                  const btn = document.getElementById("jiraHelpBtn");
                  const modal = document.getElementById("jiraHelpModal");
                  const closeBtn = document.getElementById("closeJiraHelp");
+				                  const downloadInstructionsBtn = document.getElementById("downloadJiraInstructionsTxt");
                  if(!btn || !modal || !closeBtn) return;
 
                  function openModal(){
@@ -2238,6 +2407,27 @@ function togglePerformanceMdRow(){
                  document.addEventListener("keydown", function(e){
                    if(e.key === "Escape") closeModal();
                  });
+				 if(downloadInstructionsBtn){
+                   downloadInstructionsBtn.addEventListener("click", function(){
+                     const steps = Array.from(modal.querySelectorAll("ol li"))
+                       .map(function(li, idx){
+                         return (idx + 1) + ". " + String(li.textContent || "").trim();
+                       })
+                       .filter(Boolean);
+
+                     const lines = ["How to import the CSV into Jira", "", ...steps];
+                     const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
+                     const url = URL.createObjectURL(blob);
+                     const link = document.createElement("a");
+
+                     link.href = url;
+                     link.download = "jira_import_instructions.txt";
+                     document.body.appendChild(link);
+                     link.click();
+                     link.remove();
+                     URL.revokeObjectURL(url);
+                   });
+                 }
                }
 
                
@@ -2252,8 +2442,12 @@ function togglePerformanceMdRow(){
 
                  if(!openBtn || !modal || !closeBtn || !cancelBtn || !downloadBtn || !input || !error) return;
 
+function normalizeJiraKey(v){
+                   return String(v || "").trim().toUpperCase();
+                 }
+				 
                  function isValidKey(v){
-                   return /^[A-Z][A-Z0-9]+-\d+$/.test(String(v || "").trim());
+                   return /^[A-Z][A-Z0-9]+-\d+$/.test(normalizeJiraKey(v));
                  }
 
                  function updateState(){
@@ -2297,11 +2491,12 @@ function togglePerformanceMdRow(){
                  input.addEventListener("input", updateState);
 
                  downloadBtn.addEventListener("click", function(){
-                   const v = String(input.value || "").trim();
+                   const v = normalizeJiraKey(input.value);
                    if(!isValidKey(v)) {
                      updateState();
                      return;
                    }
+				   input.value = v;
                    closeModal();
                    generateCSV(v);
                  });
@@ -2821,11 +3016,12 @@ channels: parseInt(el("channels").value, 10) || 0,
                  // Core tasks (fixed per upgrade type)
                  let dbChanges = 0;
                
-               if (upgradeType === "major") {
-               // Major = 2 core versions: 10 MD for the first + 5 MD for the additional
-               const count = state.coreVersionsCount || 2;
+               if (upgradeType === "annual") {
+               // Continuous annual upgrades: 10 MD for the first + 5 MD for each additional
+               const count = state.coreVersionsCount || 1;
                dbChanges = 10 + Math.max(0, count - 1) * 5;
-               } else if (upgradeType === "annual") {
+               } else if (upgradeType === "major") {
+			   // Major (big-bang) upgrade: one-time effort
                dbChanges = 10;
                } else {
                // quarterly
@@ -2939,8 +3135,8 @@ const detailedBody = document.querySelector("#detailedTable tbody");
                
                // Text blocks (Excel style)
                const scopeDb =
-               (upgradeType === "major")
-               ? "for 1 major upgrade - 10md, then for every additional upgrade it is additional 5md"
+               (upgradeType === "annual")
+               ? "for 1 upgrade - 10md, then for every additional upgrade it is additional 5md"
                : "fixed effort per upgrade type";
                
                const scopeFileChecker =
@@ -2999,8 +3195,8 @@ const detailedBody = document.querySelector("#detailedTable tbody");
     "<td>Build & System test</td>" +
     "<td>Technical upgrade</td>" +
     "<td>Execution of DB changes</td>" +
-    "<td>" + (upgradeType === "major" ? state.coreVersionsCount : 1) + "</td>" +
-    "<td>" + (upgradeType === "major" ? "10 MD +5 per additional" : "fixed") + "</td>" +
+    "<td>" + (upgradeType === "annual" ? state.coreVersionsCount : 1) + "</td>" +
+    "<td>" + (upgradeType === "annual" ? "10 MD +5 per additional" : "fixed") + "</td>" +
     "<td>" + dbChanges.toFixed(1) + "</td>" +
   "</tr>" +
 
@@ -3219,11 +3415,11 @@ const detailedBody = document.querySelector("#detailedTable tbody");
     "<td colspan='5'>Global Buffer</td>" +
     "<td>" +
       "<div style='display:flex; gap:6px; align-items:center; justify-content:flex-end; flex-wrap:nowrap;'>" +
+	   "<input id='globalBufferValue' class='input-sm' type='number' min='0' step='0.1' style='width:110px; text-align:right;' value='" + (((state.risk.globalBufferMode || 'pct') === 'md' ? (Number(state.risk.globalBufferMd)||0) : (Number(state.risk.globalBufferPct)||0))) + "' />" +
 	  "<select id='globalBufferMode' class='input-sm' style='width:88px;'>" +
           "<option value='pct'" + ((state.risk.globalBufferMode || 'pct') === 'pct' ? " selected" : "") + ">% </option>" +
           "<option value='md'" + ((state.risk.globalBufferMode || 'pct') === 'md' ? " selected" : "") + ">MD</option>" +
         "</select>" +
-        "<input id='globalBufferValue' class='input-sm' type='number' min='0' step='0.1' style='width:110px; text-align:right;' value='" + (((state.risk.globalBufferMode || 'pct') === 'md' ? (Number(state.risk.globalBufferMd)||0) : (Number(state.risk.globalBufferPct)||0))) + "' />" +
       "</div>" +
     "</td>" +
   "</tr>" +
@@ -3232,8 +3428,8 @@ const detailedBody = document.querySelector("#detailedTable tbody");
     "</span><span>" +
     "<strong id='bufferMdDisplay'>" + (__buf.md ? __buf.md.toFixed(1) : '0.0') + "</strong> MD" +
     "</span></div></td></tr>" +  
-  "<tr><td colspan='5'>Notes / Assumptions</td><td><input id='globalBufferNotes' class='input-sm' type='text' placeholder='Optional notes' value='" + escapeHtml(String(state.risk.bufferReason || '')) + "' style='width:100%;' /></td></tr>" +
-  "<tr><td colspan='5'><strong>Total (incl. buffer)</strong></td><td><strong id='totalInclBufferDisplay'>" + totalDevWithBuffer.toFixed(1) + "</strong></td></tr>";
+	  "<tr><td colspan='2'>Notes / Assumptions</td><td colspan='4'><textarea id='globalBufferNotes' class='input-sm' placeholder='Optional notes' style='width:100%; min-height:72px; resize:vertical;'>" + escapeHtml(String(state.risk.bufferReason || '')) + "</textarea></td></tr>" +
+	  "<tr><td colspan='5'><strong>Total (incl. buffer)</strong></td><td><strong id='totalInclBufferDisplay'>" + totalDevWithBuffer.toFixed(1) + "</strong></td></tr>";
 
                // Append manual tasks into the detailed breakdown (so they are part of the plan)
                if(Array.isArray(state.manualTasks) && state.manualTasks.length){
@@ -3332,6 +3528,15 @@ el("resultsSection").style.display = "block";
                
                // Save base calculation rows for buffer application and CSV generation
                const baseRows = Array.from(detailedBody.querySelectorAll("tr")).map((row, idx) => {
+			    const txt = (row.textContent || "").toUpperCase();
+                 if(
+                   txt.includes("TOTAL DEV EFFORT") ||
+                   txt.includes("GLOBAL BUFFER") ||
+                   txt.includes("NOTES / ASSUMPTIONS") ||
+                   txt.includes("TOTAL (INCL. BUFFER)")
+                 ){
+                   return null;
+                 }
                  const cells = Array.from(row.querySelectorAll("td")).map((c) => c.textContent.trim());
                  // Expected columns before buffer is applied: Phase, Sub phase, Work Items, Qty, Rate, Total in MD
                  return {
@@ -3345,7 +3550,7 @@ el("resultsSection").style.display = "block";
                     isManual: row.getAttribute("data-manual") === "1",
                     notes: row.getAttribute("data-notes") || ""
                   };
-               });
+               }).filter(Boolean);
 
                updateTotalsFromItems(baseRows);
 
@@ -3639,7 +3844,39 @@ function wireBufferInputs(){
 
 
 function wireAutoDetailsToggles() {
-  // no-op: auto details toggles were removed, keep for backward compatibility
+const toggles = document.querySelectorAll(".auto-details-toggle");
+  if(!toggles.length) return;
+
+  toggles.forEach((toggleBtn) => {
+    const metric = toggleBtn.dataset.metric;
+    const row = document.getElementById(`${metric}DetailsRow`);
+    const countEl = document.getElementById(`${metric}DetailsCount`);
+    const listEl = document.getElementById(`${metric}DetailsList`);
+    if(!metric || !row || !countEl || !listEl) return;
+
+    const detailItems = Array.isArray(window.autoDetails && window.autoDetails[metric])
+      ? window.autoDetails[metric]
+      : [];
+
+    countEl.textContent = `${detailItems.length} item${detailItems.length === 1 ? "" : "s"}`;
+
+    if(detailItems.length){
+      listEl.innerHTML = detailItems
+        .map((item) => `<div class="details-item">${escapeHtml(String(item))}</div>`)
+        .join("");
+    } else {
+      listEl.innerHTML = '<span class="details-empty">No details loaded.</span>';
+    }
+
+    if(toggleBtn.dataset.wired !== "1"){
+      toggleBtn.dataset.wired = "1";
+      toggleBtn.addEventListener("click", () => {
+        const currentlyOpen = row.style.display !== "none";
+        row.style.display = currentlyOpen ? "none" : "table-row";
+        toggleBtn.textContent = currentlyOpen ? "Details" : "Hide";
+      });
+    }
+  });
 }
 
 document.addEventListener("DOMContentLoaded", function(){
@@ -3687,6 +3924,78 @@ document.addEventListener("DOMContentLoaded", function(){
     return Number.isFinite(d.getTime()) ? d : null;
   }
 
+
+ const DAY_MS = 24 * 60 * 60 * 1000;
+  const COUNTRY_WEEKENDS = {
+    IN: new Set([0, 6]),
+    PL: new Set([0, 6]),
+    DE: new Set([0, 6]),
+    IL: new Set([5, 6])
+  };
+
+  const holidayCache = new Map();
+
+  function readSelectedCountries(){
+    const sel = q('#ganttCountries');
+    if(!sel) return [];
+    return Array.from(sel.selectedOptions || []).map((o) => o.value).filter(Boolean);
+  }
+
+  async function fetchCountryYearHolidays(countryCode, year){
+    const cacheKey = `${countryCode}-${year}`;
+    if(holidayCache.has(cacheKey)) return holidayCache.get(cacheKey);
+
+    const promise = fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/${countryCode}`)
+      .then((res) => {
+        if(!res.ok) throw new Error(`Holiday API ${res.status}`);
+        return res.json();
+      })
+      .then((rows) => new Set((Array.isArray(rows) ? rows : []).map((r) => String(r.date || '').slice(0, 10)).filter(Boolean)))
+      .catch(() => new Set());
+
+    holidayCache.set(cacheKey, promise);
+    return promise;
+  }
+
+  async function buildHolidaySet(countryCodes, years){
+    const all = await Promise.all(countryCodes.flatMap((code) => years.map((year) => fetchCountryYearHolidays(code, year))));
+    const merged = new Set();
+    all.forEach((setObj) => setObj.forEach((d) => merged.add(d)));
+    return merged;
+  }
+
+  function buildWeekendSet(countryCodes){
+    if(!countryCodes.length) return new Set([0, 6]);
+    const merged = new Set();
+    countryCodes.forEach((code) => {
+      const days = COUNTRY_WEEKENDS[code] || new Set([0, 6]);
+      days.forEach((d) => merged.add(d));
+    });
+    return merged;
+  }
+
+  function isoDate(d){ return d.toISOString().slice(0, 10); }
+
+  function isNonWorkingDay(d, weekendSet, holidaySet){
+    return weekendSet.has(d.getDay()) || holidaySet.has(isoDate(d));
+  }
+
+  function nextWorkingDay(date, weekendSet, holidaySet){
+    const d = new Date(date.getTime());
+    while(isNonWorkingDay(d, weekendSet, holidaySet)) d.setDate(d.getDate() + 1);
+    return d;
+  }
+
+  function addWorkingDays(startDate, workingDays, weekendSet, holidaySet){
+    const d = nextWorkingDay(startDate, weekendSet, holidaySet);
+    let remaining = Math.max(1, workingDays);
+    while(remaining > 0){
+      if(!isNonWorkingDay(d, weekendSet, holidaySet)) remaining -= 1;
+      if(remaining > 0) d.setDate(d.getDate() + 1);
+    }
+    d.setDate(d.getDate() + 1);
+    return d;
+  }
   function readRowLabel(tr, groupBy){
     const tds = qa('td', tr);
     if(groupBy === 'subphase' || groupBy === 'subPhase') return (tds[1] && tds[1].textContent || '').trim();
@@ -3722,12 +4031,13 @@ document.addEventListener("DOMContentLoaded", function(){
     return Array.from(grouped.entries()).map(([label, md]) => ({ label, md }));
   }
 
-  function renderGantt(){
+  async  function renderGantt(){
     const wrap = q('#ganttSvgWrap');
     const startDate = parseDate(q('#ganttStartDate') && q('#ganttStartDate').value);
     const mdPerWeek = parseFloat(q('#ganttMdPerWeek') && q('#ganttMdPerWeek').value || '');
     const groupBy = (q('#ganttGroupBy') && q('#ganttGroupBy').value) || 'phase';
-
+ const countryCodes = readSelectedCountries();
+ 
     if(!wrap) return;
     if(!startDate || !(mdPerWeek > 0)){
       wrap.innerHTML = '<div style="color:#b42318;">Provide a valid start date and capacity (MD per week).</div>';
@@ -3740,20 +4050,42 @@ document.addEventListener("DOMContentLoaded", function(){
       return;
     }
 
+  const workingDaysPerWeek = 5;
+    const mdPerWorkingDay = mdPerWeek / workingDaysPerWeek;
+    const weekendSet = buildWeekendSet(countryCodes);
+
+    let totalExpectedCalendarDays = 0;
+    tasks.forEach((t) => {
+      const workingDays = Math.max(1, Math.ceil(t.md / mdPerWorkingDay));
+      totalExpectedCalendarDays += workingDays + 10;
+    });
+    const finalYear = new Date(startDate.getTime() + totalExpectedCalendarDays * DAY_MS).getFullYear();
+    const years = [];
+    for(let y = startDate.getFullYear(); y <= finalYear; y += 1) years.push(y);
+    const holidaySet = await buildHolidaySet(countryCodes, years);
+	
     const dayWidth = 10;
     const rowH = 30;
     const leftPad = 220;
     const topPad = 30;
 
-    let dayOffset = 0;
+    let cursor = nextWorkingDay(startDate, weekendSet, holidaySet);
     const bars = tasks.map((t) => {
-      const days = Math.max(1, Math.ceil((t.md / mdPerWeek) * 7));
-      const start = dayOffset;
-      dayOffset += days;
-      return { ...t, start, days };
+       const workingDays = Math.max(1, Math.ceil(t.md / mdPerWorkingDay));
+      const barStart = nextWorkingDay(cursor, weekendSet, holidaySet);
+      const barEndExclusive = addWorkingDays(barStart, workingDays, weekendSet, holidaySet);
+      cursor = barEndExclusive;
+      return {
+        ...t,
+        barStart,
+        barEndExclusive,
+        workingDays,
+        start: Math.round((barStart.getTime() - startDate.getTime()) / DAY_MS),
+        days: Math.max(1, Math.round((barEndExclusive.getTime() - barStart.getTime()) / DAY_MS))
+      };
     });
 
-    const totalDays = Math.max(14, dayOffset);
+    const totalDays = Math.max(14, Math.round((cursor.getTime() - startDate.getTime()) / DAY_MS));
     const width = leftPad + totalDays * dayWidth + 40;
     const height = topPad + bars.length * rowH + 30;
 
@@ -3825,11 +4157,11 @@ document.addEventListener("DOMContentLoaded", function(){
     const card = q('#ganttCard');
 
     if(genBtn && card){
-      genBtn.addEventListener('click', function(){
+genBtn.addEventListener('click', async function(){
         card.style.display = '';
         const start = q('#ganttStartDate');
         if(start && !start.value) start.value = new Date().toISOString().slice(0,10);
-        renderGantt();
+        await renderGantt();
       });
     }
 
@@ -3914,11 +4246,10 @@ document.addEventListener("DOMContentLoaded", function(){
 <li>Click Next to complete the import.</li>
                </ol>
 
-               <!-- Screenshots example -->
-               <!--
-               <h3>Step 3 - Upload CSV</h3>
-               <img src="images/jira-upload.png" alt="Jira upload CSV screen" />
-               -->
+  <div style="display:flex;justify-content:flex-end;margin-top:14px;">
+                  <button id="downloadJiraInstructionsTxt" type="button" class="calculate-btn csv-btn">Download instructions (.txt)</button>
+               </div>
+
             </div>
          </div>
       </div>
@@ -4641,6 +4972,10 @@ function wireStep1Navigation(){
     if(!tbody) return;
     qsa("tr", tbody).forEach((tr) => {
       if(isSpecialRow(tr)) return;
+	  const isUserEditable = tr.getAttribute("data-user-added") === "1" ||
+        tr.getAttribute("data-manual") === "1" ||
+        !!tr.querySelector('[data-user-phase="1"]');
+      if(!isUserEditable) return;
       const firstTd = tr.querySelector("td");
       if(!firstTd) return;
       if(firstTd.querySelector(".row-add-btn")) return;
@@ -4675,6 +5010,10 @@ function wireStep1Navigation(){
   }
 
   function recomputeGrandTotal(){
+   if(typeof applyOverridesAndRefresh === "function" && window.state?.lastCalc){
+      applyOverridesAndRefresh();
+      return;
+    }
     const tbody = qs("#detailedTable tbody");
     if(!tbody) return;
 
@@ -4728,7 +5067,7 @@ function wireStep1Navigation(){
     "<td><input class='detailed-input detailed-input-sm' type='number' min='0' step='1' value='1' data-user-qty='1' /></td>" +
     "<td><input class='detailed-input detailed-input-sm' placeholder='Rate' data-user-rate='1' /></td>" +
     "<td><input class='detailed-input detailed-input-md' type='number' min='0' step='0.5' value='0' data-user-base-md='1' /></td>" +
-    "<td style='text-align:center;'><input type='checkbox' class='checkbox-sm' data-user-override='1' /></td>" +
+    "<td style='text-align:center;'><input type='checkbox' class='checkbox-sm' data-user-override='1' disabled /></td>" +
     "<td><input class='detailed-input detailed-input-md' type='number' min='0' step='0.5' value='' disabled data-user-override-md='1' /></td>" +
     "<td><input class='detailed-input' placeholder='Notes and assumptions' data-user-notes='1' /></td>" +
     "<td data-user-total='1'>0.0</td>";
@@ -4743,13 +5082,8 @@ function wireStep1Navigation(){
     setRowTotal(tr);
     recomputeGrandTotal();
   }
-  if(cb){
-    cb.addEventListener("change", function(){
-      if(ov) ov.disabled = !cb.checked;
-      setRowTotal(tr);
-      recomputeGrandTotal();
-    });
-  }
+  if(cb) cb.checked = false;
+  if(ov) ov.disabled = true;
 
   if(ov) ov.addEventListener("input", onChange);
   if(base) base.addEventListener("input", onChange);
@@ -4803,7 +5137,7 @@ function wireStep1Navigation(){
         phaseInp.value = sourcePhase;
       }
 	  
-      // keep add buttons on all rows (for generated rows that were re-rendered)
+            // keep add buttons on editable rows
       ensureAddButtons();
 
       // focus first input
