@@ -82,6 +82,29 @@
          font-size:12px;
          border:1px solid var(--border);
          }
+         .step2-tabs{
+         display:flex;
+         gap:8px;
+         margin:12px 0 16px;
+         flex-wrap:wrap;
+         }
+         .step2-tab-btn{
+         border:1px solid var(--border);
+         background:#fff;
+         color:var(--text);
+         border-radius:999px;
+         padding:8px 14px;
+         font-size:13px;
+         font-weight:600;
+         cursor:pointer;
+         }
+         .step2-tab-btn.active{
+         border-color:var(--brand);
+         background:var(--brand-soft);
+         color:var(--brand);
+         }
+         .step2-tab-pane{ display:none; }
+         .step2-tab-pane.active{ display:block; }
          
          h1 {
          color: var(--brand-navy-2);
@@ -972,6 +995,12 @@
                      <h3>Project Parameters</h3>
                      <span class="upgrade-type-badge" id="upgradeTypeBadge"></span>
                   </div>
+                  <div class="step2-tabs" role="tablist" aria-label="Step 2 tabs">
+                     <button type="button" class="step2-tab-btn active" id="tabProjectBtn" data-step2-tab="project">Project Parameters</button>
+                     <button type="button" class="step2-tab-btn" id="tabRatesBtn" data-step2-tab="rates">Rate Parameters</button>
+                  </div>
+
+                  <div id="step2TabProject" class="step2-tab-pane active" data-step2-pane="project">
                   <div class="param-sections">
 
                      
@@ -1250,16 +1279,45 @@
                         </table>
                      </div>
                   
+                     </div>
+                  </div>
+
+                  <div id="step2TabRates" class="step2-tab-pane" data-step2-pane="rates">
+                     <div class="section-card" id="rateParametersCard">
+                        <div class="section-title">
+                           <h4>Rate Parameters</h4>
+                           <span class="badge badge-manual">EDITABLE</span>
+                        </div>
+                        <p class="section-hint">
+                           Defaults for all calculation rates used in the editable task breakdown. Update if your project uses different assumptions.
+                        </p>
+                        <table class="form-table">
+                           <tr><td>XML files rate (MD per file)</td><td><input class="input-sm" type="number" id="xmlMergeRate" min="0" step="0.1" value="0.4" /></td></tr>
+                           <tr><td>JSP files rate (MD per file)</td><td><input class="input-sm" type="number" id="jspMergeRate" min="0" step="0.1" value="0.4" /></td></tr>
+                           <tr><td>Changed methods rate (MD per method)</td><td><input class="input-sm" type="number" id="changedMethodRate" min="0" step="0.1" value="0.2" /></td></tr>
+                           <tr><td>Changed queries rate (MD per query)</td><td><input class="input-sm" type="number" id="changedQueryRate" min="0" step="0.1" value="0.5" /></td></tr>
+                           <tr><td>SessionBean rate (MD per occurrence)</td><td><input class="input-sm" type="number" id="sessionBeanRate" min="0" step="0.1" value="0.1" /></td></tr>
+                           <tr><td>COPR rate (MD per item)</td><td><input class="input-sm" type="number" id="coprRate" min="0" step="0.1" value="0.2" /></td></tr>
+                           <tr><td>Simple interface rate (MD per interface)</td><td><input class="input-sm" type="number" id="interfaceSimpleRate" min="0" step="0.1" value="1" /></td></tr>
+                           <tr><td>Medium interface rate (MD per interface)</td><td><input class="input-sm" type="number" id="interfaceMediumRate" min="0" step="0.1" value="3" /></td></tr>
+                           <tr><td>Complex interface rate (MD per interface)</td><td><input class="input-sm" type="number" id="interfaceComplexRate" min="0" step="0.1" value="5" /></td></tr>
+                           <tr><td>Stabilizing main flows - major (MD)</td><td><input class="input-sm" type="number" id="stabilizingMajorRate" min="0" step="0.1" value="15" /></td></tr>
+                           <tr><td>Stabilizing main flows - annual (MD)</td><td><input class="input-sm" type="number" id="stabilizingAnnualRate" min="0" step="0.1" value="15" /></td></tr>
+                           <tr><td>Stabilizing main flows - quarterly (MD)</td><td><input class="input-sm" type="number" id="stabilizingQuarterlyRate" min="0" step="0.1" value="10" /></td></tr>
+                           <tr><td>Additional channels rate (MD per channel)</td><td><input class="input-sm" type="number" id="channelRate" min="0" step="0.1" value="3" /></td></tr>
+                           <tr><td>Merges from BAU rate (MD per merge)</td><td><input class="input-sm" type="number" id="mergeRate" min="0" step="0.1" value="5" /></td></tr>
+                           <tr><td>Minor core upgrades rate (MD per upgrade)</td><td><input class="input-sm" type="number" id="minorUpgradeRate" min="0" step="0.1" value="5" /></td></tr>
+                           <tr><td>ST defect fixing rate (% of development effort)</td><td><input class="input-sm" type="number" id="stDefectRatePct" min="0" step="1" value="40" /></td></tr>
+                           <tr><td>SIT/UAT support rate (% of dev team effort)</td><td><input class="input-sm" type="number" id="customerTestingRatePct" min="0" step="1" value="50" /></td></tr>
+                        </table>
+                     </div>
+                  </div>
+
 <div id="step2ActionsBar" style="margin-top:18px; display:flex; justify-content:center;">
   <button type="button" class="calculate-btn" id="calculateEffortBtnStep2">
     Calculate effort
   </button>
 </div>
-
-
-                     </div>
-				  </div>
-                  
 
 
                </div>
@@ -2978,6 +3036,12 @@ function computeGlobalBufferMd(totalDevMd){
                  setText("tileBufferMd", (Number(buf.md) || 0).toFixed(1));
                }
 
+function parseRateInput(id, fallback) {
+  const raw = el(id) ? el(id).value : fallback;
+  const num = parseFloat(raw);
+  return Number.isFinite(num) ? num : fallback;
+}
+
 function calculateEffort() {
   readRiskInputsToState();
 			   const perfRequired = el("performanceRequired")?.checked;
@@ -3000,17 +3064,26 @@ channels: parseInt(el("channels").value, 10) || 0,
                    newTechRate: parseFloat(el("newTechRate") ? el("newTechRate").value : 5) || 5,
                  };
                
-                 // Rates
+                 // Rates (editable in Step 2 -> Rate Parameters)
                  const rates = {
                    dbBase: { major: 15, annual: 10, quarterly: 5 },
-                   stabilizing: { major: 15, annual: 15, quarterly: 10 },
+                   stabilizing: {
+                     major: parseRateInput("stabilizingMajorRate", 15),
+                     annual: parseRateInput("stabilizingAnnualRate", 15),
+                     quarterly: parseRateInput("stabilizingQuarterlyRate", 10)
+                   },
 
-                   xmlMergeRate: 0.4,
-                   jspMergeRate: 0.4,
-                   changedMethodRate: 0.2,
-                   changedQueryRate: 0.5,
-                   sessionBeanRate: 0.1,
-                   coprRate: 0.2
+                   xmlMergeRate: parseRateInput("xmlMergeRate", 0.4),
+                   jspMergeRate: parseRateInput("jspMergeRate", 0.4),
+                   changedMethodRate: parseRateInput("changedMethodRate", 0.2),
+                   changedQueryRate: parseRateInput("changedQueryRate", 0.5),
+                   sessionBeanRate: parseRateInput("sessionBeanRate", 0.1),
+                   coprRate: parseRateInput("coprRate", 0.2),
+                   channelRate: parseRateInput("channelRate", 3),
+                   mergeRate: parseRateInput("mergeRate", 5),
+                   minorUpgradeRate: parseRateInput("minorUpgradeRate", 5),
+                   stDefectRatePct: parseRateInput("stDefectRatePct", 40),
+                   customerTestingRatePct: parseRateInput("customerTestingRatePct", 50)
                  };
                
                  // Core tasks (fixed per upgrade type)
@@ -3043,7 +3116,7 @@ channels: parseInt(el("channels").value, 10) || 0,
                  const sessionEffort = inputs.sessionBeans * rates.sessionBeanRate;
                  const coprEffort = inputs.coprs * rates.coprRate;
                // Interfaces stabilization (dynamic rows)
-               const interfaceRates = { simple: 1, medium: 3, complex: 5 };
+               const interfaceRates = { simple: parseRateInput("interfaceSimpleRate", 1), medium: parseRateInput("interfaceMediumRate", 3), complex: parseRateInput("interfaceComplexRate", 5) };
                let interfacesEffort = 0;
                let interfacesQtyTotal = 0;
                let interfacesDesc = [];
@@ -3072,9 +3145,9 @@ channels: parseInt(el("channels").value, 10) || 0,
                   
                
                  // Optional blocks (not for quarterly)
-                 const channelEffort = upgradeType !== "quarterly" ? inputs.channels * 3 : 0;
-                 const mergeEffort = upgradeType !== "quarterly" ? inputs.merges * 5 : 0;
-                 const minorEffort = upgradeType !== "quarterly" ? inputs.minorUpgrades * 5 : 0;
+                 const channelEffort = upgradeType !== "quarterly" ? inputs.channels * rates.channelRate : 0;
+                 const mergeEffort = upgradeType !== "quarterly" ? inputs.merges * rates.mergeRate : 0;
+                 const minorEffort = upgradeType !== "quarterly" ? inputs.minorUpgrades * rates.minorUpgradeRate : 0;
                
                  const sdEffort = inputs.solutionDesign;
                
@@ -3098,7 +3171,7 @@ inputs.additionalProjectComplexity +
                
                
                  
-                 const stDefects = devEffort * 0.4;
+                 const stDefects = devEffort * (rates.stDefectRatePct / 100);
 
                  // Manual tasks
                  const manualTasks = readManualTasks();
@@ -3117,7 +3190,7 @@ inputs.additionalProjectComplexity +
                  const buildForDerivation = devEffort + stDefects + manualByPhase.build + manualByPhase.devops + manualByPhase.other;
 
                  // Customer Testing derived from Build
-                 const customerTestingDerived = buildForDerivation * 0.5;
+                 const customerTestingDerived = buildForDerivation * (rates.customerTestingRatePct / 100);
 
                  // Totals
                  const customerTestingTotal = customerTestingDerived + manualByPhase.customer;
@@ -3219,7 +3292,7 @@ const detailedBody = document.querySelector("#detailedTable tbody");
     "<td>Technical upgrade</td>" +
     "<td>XML files</td>" +
     "<td>" + inputs.xmlFiles + "</td>" +
-    "<td>0.4</td>" +
+    "<td>" + rates.xmlMergeRate + "</td>" +
     "<td>" + xmlEffort.toFixed(1) + "</td>" +
   "</tr>" +
 
@@ -3229,7 +3302,7 @@ const detailedBody = document.querySelector("#detailedTable tbody");
     "<td>Technical upgrade</td>" +
     "<td>JSP files</td>" +
     "<td>" + inputs.jspFiles + "</td>" +
-    "<td>0.4</td>" +
+    "<td>" + rates.jspMergeRate + "</td>" +
     "<td>" + jspEffort.toFixed(1) + "</td>" +
   "</tr>" +
 
@@ -3239,7 +3312,7 @@ const detailedBody = document.querySelector("#detailedTable tbody");
     "<td>Technical upgrade</td>" +
     "<td>Changed methods</td>" +
     "<td>" + inputs.changedMethods + "</td>" +
-    "<td>0.2</td>" +
+    "<td>" + rates.changedMethodRate + "</td>" +
     "<td>" + changedMethodsEffort.toFixed(1) + "</td>" +
   "</tr>" +
 
@@ -3249,7 +3322,7 @@ const detailedBody = document.querySelector("#detailedTable tbody");
     "<td>Technical upgrade</td>" +
     "<td>Changed queries</td>" +
     "<td>" + inputs.changedQueries + "</td>" +
-    "<td>0.5</td>" +
+    "<td>" + rates.changedQueryRate + "</td>" +
     "<td>" + changedQueriesEffort.toFixed(1) + "</td>" +
   "</tr>" +
 
@@ -3259,7 +3332,7 @@ const detailedBody = document.querySelector("#detailedTable tbody");
     "<td>Technical upgrade</td>" +
     "<td>SessionBean </td>" +
     "<td>" + inputs.sessionBeans + "</td>" +
-    "<td>0.1</td>" +
+    "<td>" + rates.sessionBeanRate + "</td>" +
     "<td>" + sessionEffort.toFixed(1) + "</td>" +
   "</tr>" +
 
@@ -3339,7 +3412,7 @@ const detailedBody = document.querySelector("#detailedTable tbody");
     "</span>" +
   "</td>" +
   "<td>" + inputs.channels + "</td>" +
-  "<td>3</td>" +
+  "<td>" + rates.channelRate + "</td>" +
   "<td>" + channelEffort.toFixed(1) + "</td>" +
 "</tr>" +
 
@@ -3353,7 +3426,7 @@ const detailedBody = document.querySelector("#detailedTable tbody");
 	 "<span class='help-icon' tabindex='0' data-tooltip='5d per merge'>i</span>" +
     "</span>" +
     "<td>" + inputs.merges + "</td>" +
-    "<td>5</td>" +
+    "<td>" + rates.mergeRate + "</td>" +
     "<td>" + mergeEffort.toFixed(1) + "</td>" +
   "</tr>" +
 
@@ -3363,7 +3436,7 @@ const detailedBody = document.querySelector("#detailedTable tbody");
     "<td>Minor core upgrades</td>" +
     "<td>ex. Minor core upgrade (from 18.4.2 to 18.4.3 ) </td>" +
     "<td>" + inputs.minorUpgrades + "</td>" +
-    "<td>5</td>" +
+    "<td>" + rates.minorUpgradeRate + "</td>" +
     "<td>" + minorEffort.toFixed(1) + "</td>" +
   "</tr>" +
 
@@ -3382,7 +3455,7 @@ const detailedBody = document.querySelector("#detailedTable tbody");
     "<td>ST defect fixing</td>" +
     "<td>40% of development effort under the assumption that existing defects (that exist in the previuos phase prior to upgrade ) will NOT be fixed during the upgrade</td>" +
     "<td>-</td>" +
-    "<td>40%</td>" +
+    "<td>" + rates.stDefectRatePct + "%" + "</td>" +
     "<td>" + stDefects.toFixed(1) + "</td>" +
   "</tr>" +
 
@@ -3391,7 +3464,7 @@ const detailedBody = document.querySelector("#detailedTable tbody");
     "<td>SIT/UAT support</td>" +
     "<td>at least 50% of the dev team , but depends on customer testing plan </td>" +
 	"<td>-</td>" +
-    "<td>50%</td>" +
+    "<td>" + rates.customerTestingRatePct + "%" + "</td>" +
     "<td>" + customerTestingDerived.toFixed(1) + "</td>" +
   "</tr>" +
 
@@ -3890,6 +3963,7 @@ document.addEventListener("DOMContentLoaded", function(){
                   wireManualTasks();
                   wireAutoDetailsToggles();
                   wireStep1Navigation();
+                  wireStep2Tabs();
 				  wireJsonImportExport();
 				                    wireBufferInputs();
                });
@@ -4918,6 +4992,24 @@ function applyAutoCountsToInputs(){
 
 function goBack(){
   showStep(1);
+}
+
+
+function wireStep2Tabs(){
+  const buttons = Array.from(document.querySelectorAll('[data-step2-tab]'));
+  const panes = Array.from(document.querySelectorAll('[data-step2-pane]'));
+  if(!buttons.length || !panes.length) return;
+
+  const activate = (name) => {
+    buttons.forEach((btn) => btn.classList.toggle('active', btn.dataset.step2Tab === name));
+    panes.forEach((pane) => pane.classList.toggle('active', pane.dataset.step2Pane === name));
+  };
+
+  buttons.forEach((btn) => {
+    btn.addEventListener('click', () => activate(btn.dataset.step2Tab));
+  });
+
+  activate('project');
 }
 
 function wireStep1Navigation(){
