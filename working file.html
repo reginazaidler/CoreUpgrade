@@ -3593,7 +3593,7 @@ document.addEventListener("DOMContentLoaded", function(){
 
 
   function updateCsvButtonEnabled(){
-    const btn = document.getElementById('downloadCsvForJiraBtn') || document.querySelector('[data-action="download-csv-jira"]');
+    const btn = document.getElementById('downloadJiraCsvBtn') || document.querySelector('[data-action="download-csv-jira"]');
     if(!btn) return;
     const ok = !!(window.calculationData && Array.isArray(window.calculationData.items) && window.calculationData.items.length);
     btn.disabled = !ok;
