@@ -1756,7 +1756,7 @@ const CORE_TECH_STACK = {
   }
 };
 
-const CORE_VERSIONS = [
+ window.CORE_VERSIONS = [
   { key: "core16_0", label: "core 16.0" },
   { key: "core17_0", label: "core 17.0" },
   { key: "core18_0", label: "core 18.0" },
@@ -1797,8 +1797,8 @@ function updateUpgradeScopeFromRange(){
   const fromKey = fromSel.value;
   const toKey = toSel.value;
 
-  const fromIdx = CORE_VERSIONS.findIndex(v => v.key === fromKey);
-  const toIdx = CORE_VERSIONS.findIndex(v => v.key === toKey);
+  const fromIdx = window.CORE_VERSIONS.findIndex(v => v.key === fromKey);
+  const toIdx = window.CORE_VERSIONS.findIndex(v => v.key === toKey);
 
   // coreVersionsCount = number of core versions jumped (indexes delta)
   if(fromIdx >= 0 && toIdx >= 0 && toIdx > fromIdx){
@@ -1835,7 +1835,7 @@ function updateToOptionsFromFromSelection() {
   if(!fromSel || !toSel) return;
 
   const fromKey = fromSel.value;
-  const fromIdx = CORE_VERSIONS.findIndex(v => v.key === fromKey);
+  const fromIdx = window.CORE_VERSIONS.findIndex(v => v.key === fromKey);
 
   const prevTo = toSel.value;
 
@@ -1843,8 +1843,8 @@ function updateToOptionsFromFromSelection() {
 
   // Only allow TO versions strictly AFTER FROM
   const allowed = (fromIdx >= 0)
-    ? CORE_VERSIONS.slice(fromIdx + 1)
-    : CORE_VERSIONS.slice();
+    ? window.CORE_VERSIONS.slice(fromIdx + 1)
+    : window.CORE_VERSIONS.slice();
 
   allowed.forEach(o => {
     const opt = document.createElement("option");
@@ -2956,7 +2956,15 @@ function calculateEffort() {
   readRiskInputsToState();
 			   const perfRequired = el("performanceRequired")?.checked;
                const perfEffort = perfRequired ? (parseInt(el("performanceMd")?.value, 10) || 10) : 0;
-                 const upgradeType = el("upgradeType").value;
+                 const upgradeTypeEl = el("upgradeType");
+                 const selectedUpgradeType = String((upgradeTypeEl && upgradeTypeEl.value) || "").trim();
+                 const inferredUpgradeType = (state.coreVersionsCount >= 2)
+                   ? "major"
+                   : (state.coreVersionsCount === 1 ? "annual" : "quarterly");
+                 const upgradeType = ["major", "annual", "quarterly"].includes(selectedUpgradeType)
+                   ? selectedUpgradeType
+                   : inferredUpgradeType;
+                 if(upgradeTypeEl && upgradeTypeEl.value !== upgradeType) upgradeTypeEl.value = upgradeType;
                
                  const inputs = {
                    xmlFiles: parseInt(el("xmlFiles").value, 10) || 0,
@@ -3004,7 +3012,7 @@ channels: parseInt(el("channels").value, 10) || 0,
                
                  const newTechEffort = (state.coreVersionsCount || 0) * (inputs.newTechRate || 5);
 
-                 const stabilizing = rates.stabilizing[upgradeType];
+                 const stabilizing = Number(rates.stabilizing[upgradeType] ?? 0);
                
                  // File based
                  const xmlEffort = inputs.xmlFiles * rates.xmlMergeRate;
@@ -3689,7 +3697,7 @@ function rebuildCoreSelectors(){
 
   // Rebuild FROM - always show all versions (do not hide older ones)
   fromSel.innerHTML = "";
-  CORE_VERSIONS.forEach(o => {
+  window.CORE_VERSIONS.forEach(o => {
     const opt = document.createElement("option");
     opt.value = o.key;
     opt.textContent = o.label;
@@ -3697,10 +3705,10 @@ function rebuildCoreSelectors(){
   });
 
   // Restore previous selection if still exists
-  if(prevFrom && CORE_VERSIONS.some(x => x.key === prevFrom)){
+  if(prevFrom && window.CORE_VERSIONS.some(x => x.key === prevFrom)){
     fromSel.value = prevFrom;
-  } else if(CORE_VERSIONS.length){
-    fromSel.value = CORE_VERSIONS[0].key;
+  } else if(window.CORE_VERSIONS.length){
+    fromSel.value = window.CORE_VERSIONS[0].key;
   }
 
   // Rebuild TO based on FROM
@@ -3730,7 +3738,7 @@ function rebuildCoreToOptions(){
   toSel.appendChild(placeholder);
 
   // allow TO >= FROM by default (can be changed to > if needed)
-  const allowed = CORE_VERSIONS.filter(o => {
+  const allowed = window.CORE_VERSIONS.filter(o => {
     const n = coreKeyToNumber(o.key);
     if(!Number.isFinite(fromNum) || !Number.isFinite(n)) return true;
     return n >= fromNum;
