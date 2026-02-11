@@ -1,0 +1,142 @@
+Issue Type,Summary,Description,Parent,Components,Affects versions,Custom field (Sapiens Product),Competence Center
+Sub-task,Devops - Raise DevOps Tickets,"Phase: Devops
+Sub phase: Devops
+Work item: Raise DevOps Tickets
+Qty: 1
+Rate: 1
+Base MD: 1
+Total MD: 1",HGS-13333,Core Upgrade,Not Relevant,IDIT,IDIT
+Sub-task,DevopsDevopsDevops - DevopsDevopsDevopsDevopsDevops,"Phase: DevopsDevopsDevops
+Sub phase: DevopsDevopsDevops
+Work item: DevopsDevopsDevopsDevopsDevops
+Qty: 1
+Base MD: 25
+Total MD: 24",HGS-13333,Core Upgrade,Not Relevant,IDIT,IDIT
+Sub-task,Build & System test - Execution of DB changes,"Phase: Build & System test
+Sub phase: Technical upgrade
+Work item: Execution of DB changes
+Qty: 4
+Rate: 10 MD +5 per additional
+Base MD: 20
+Override: Yes
+Override MD: 24
+Total MD: 20",HGS-13333,Core Upgrade,Not Relevant,IDIT,IDIT
+Sub-task,Build & System test - Adoption of new core technologies,"Phase: Build & System test
+Sub phase: Technical upgrade
+Work item: Adoption of new core technologies
+Qty: 4
+Rate: 5
+Base MD: 0
+Total MD: 0",HGS-13333,Core Upgrade,Not Relevant,IDIT,IDIT
+Sub-task,Build & System test - XML files,"Phase: Build & System test
+Sub phase: Technical upgrade
+Work item: XML files
+Qty: 0
+Rate: 0.4
+Base MD: 0
+Total MD: 0",HGS-13333,Core Upgrade,Not Relevant,IDIT,IDIT
+Sub-task,Build & System test - JSP files,"Phase: Build & System test
+Sub phase: Technical upgrade
+Work item: JSP files
+Qty: 0
+Rate: 0.4
+Base MD: 0
+Total MD: 0",HGS-13333,Core Upgrade,Not Relevant,IDIT,IDIT
+Sub-task,Build & System test - Changed methods,"Phase: Build & System test
+Sub phase: Technical upgrade
+Work item: Changed methods
+Qty: 0
+Rate: 0.2
+Base MD: 0
+Total MD: 0",HGS-13333,Core Upgrade,Not Relevant,IDIT,IDIT
+Sub-task,Build & System test - Changed queries,"Phase: Build & System test
+Sub phase: Technical upgrade
+Work item: Changed queries
+Qty: 0
+Rate: 0.5
+Base MD: 0
+Total MD: 0",HGS-13333,Core Upgrade,Not Relevant,IDIT,IDIT
+Sub-task,Build & System test - SessionBean,"Phase: Build & System test
+Sub phase: Technical upgrade
+Work item: SessionBean
+Qty: 0
+Rate: 0.1
+Base MD: 15
+Total MD: 15",HGS-13333,Core Upgrade,Not Relevant,IDIT,IDIT
+Sub-task,Build & System test - Stabilizing main flows - conduct basic main flows sanity,"Phase: Build & System test
+Sub phase: Technical upgrade
+Work item: Stabilizing main flows - conduct basic main flows sanity
+Qty: 1
+Rate: 15
+Base MD: 0
+Total MD: 0",HGS-13333,Core Upgrade,Not Relevant,IDIT,IDIT
+Sub-task,Build & System test - COPRs resolution,"Phase: Build & System test
+Sub phase: COPRs
+Work item: COPRs resolution
+Qty: 0
+Rate: 0.2
+Base MD: 0
+Total MD: 0",HGS-13333,Core Upgrade,Not Relevant,IDIT,IDIT
+Sub-task,Build & System test - Project batches / interfaces stabilization,"Phase: Build & System test
+Sub phase: Integrations
+Work item: Project batches / interfaces stabilization
+Qty: 0
+Rate: Mixed (None)
+Base MD: 0
+Total MD: 0",HGS-13333,Core Upgrade,Not Relevant,IDIT,IDIT
+Sub-task,Build & System test - Project-specific gaps and heavy customizations,"Phase: Build & System test
+Sub phase: Additional Project complexity
+Work item: Project-specific gaps and heavy customizations
+Qty: 0
+Rate: 1
+Base MD: 0
+Total MD: 0",HGS-13333,Core Upgrade,Not Relevant,IDIT,IDIT
+Sub-task,Build & System test - Additional channels,"Phase: Build & System test
+Sub phase: Project additions
+Work item: Additional channels
+Qty: 0
+Rate: 3
+Base MD: 5
+Total MD: 5",HGS-13333,Core Upgrade,Not Relevant,IDIT,IDIT
+Sub-task,Build & System test - Merge code and setup from BAU branch to upgrade to branch,"Phase: Build & System test
+Sub phase: Merges from BAU branch
+Work item: Merge code and setup from BAU branch to upgrade to branch
+Qty: 1
+Rate: 5
+Base MD: 0
+Total MD: 0",HGS-13333,Core Upgrade,Not Relevant,IDIT,IDIT
+Sub-task,Build & System test - ex. Minor core upgrade (from 18.4.2 to 18.4.3 ),"Phase: Build & System test
+Sub phase: Minor core upgrades
+Work item: ex. Minor core upgrade (from 18.4.2 to 18.4.3 )
+Qty: 0
+Rate: 5
+Base MD: 0
+Total MD: 0",HGS-13333,Core Upgrade,Not Relevant,IDIT,IDIT
+Sub-task,Build & System test - implementing requirements that rise as a result of new core funcitonality that conflicts with project requirements,"Phase: Build & System test
+Sub phase: Solution Design Output
+Work item: implementing requirements that rise as a result of new core funcitonality that conflicts with project requirements
+Qty: 0
+Rate: 1
+Base MD: 26
+Total MD: 26",HGS-13333,Core Upgrade,Not Relevant,IDIT,IDIT
+Sub-task,Build & System test - 40% of development effort under the assumption that existing defects (that exist in the previuos phase prior to upgrade ) will NOT be fixed during the upgrade,"Phase: Build & System test
+Sub phase: ST defect fixing
+Work item: 40% of development effort under the assumption that existing defects (that exist in the previuos phase prior to upgrade ) will NOT be fixed during the upgrade
+Qty: 1
+Rate: 40%
+Base MD: 45.5
+Total MD: 45.5",HGS-13333,Core Upgrade,Not Relevant,IDIT,IDIT
+Sub-task,"Customer testing - at least 50% of the dev team , but depends on customer testing plan","Phase: Customer testing
+Sub phase: SIT/UAT support
+Work item: at least 50% of the dev team , but depends on customer testing plan
+Qty: 1
+Rate: 50%
+Base MD: 0
+Total MD: 0",HGS-13333,Core Upgrade,Not Relevant,IDIT,IDIT
+Sub-task,Performance - Performance validation and tuning,"Phase: Performance
+Sub phase: Validation and tuning
+Work item: Performance validation and tuning
+Qty: 0
+Rate: 0
+Base MD: 0
+Total MD: 0",HGS-13333,Core Upgrade,Not Relevant,IDIT,IDIT
