@@ -1444,7 +1444,7 @@
 
     <div style="min-width:170px;">
       <label for="ganttMdPerWeek">Capacity (MD per week)</label>
-      <input class="input-sm" type="number" id="ganttMdPerWeek" min="1" step="1" value="25" />
+      <input class="input-sm" type="number" id="ganttMdPerWeek" min="1" step="1" value="40" />
       <div class="muted">Used to convert MD to calendar duration (Mon-Fri).</div>
     </div>
 
@@ -1453,6 +1453,7 @@
       <select class="input-sm" id="ganttGroupBy">
         <option value="phase" selected>Phase</option>
         <option value="subPhase">Sub phase</option>
+		        <option value="workitem">Work item</option>
       </select>
     </div>
 	
@@ -1466,6 +1467,7 @@
       </select>
       <div class="muted">Use Ctrl/Cmd + click for multi-select. Public holidays + local weekends are skipped.</div>
     </div>
+
 
     <div style="margin-left:auto; display:flex; gap:10px; flex-wrap:wrap;">
       <button id="renderGanttBtn" type="button" class="calculate-btn csv-btn">Build Gantt Chart</button>
@@ -2023,7 +2025,7 @@ function getDetailedTableRowsForManagerExport() {
   trs.forEach((tr) => {
     if (tr.classList.contains("table-section-header")) return;
 
-    const tds = Array.from(tr.querySelectorAll("td"));
+		
     if (!tds.length) return;
 
     const getCellText = (cell) => {
@@ -2903,8 +2905,13 @@ const subtotalWithoutBuffer = items.reduce((s, it) => s + (Number(it.baseMd) || 
                    const tds = Array.from(tr.querySelectorAll("td"));
                    // expected 10 cells now
                    if(tds.length >= 10){
-                     // Base MD column - show original base
-                     tds[5].textContent = (Number(it.originalBaseMd) || 0).toFixed(1);
+                     const isUserAdded = tr.getAttribute("data-user-added") === "1";
+
+                     // Base MD for generated rows stays read-only text.
+                     // For user-added rows, keep the editable input intact.
+                     if(!isUserAdded){
+                       tds[5].textContent = (Number(it.originalBaseMd) || 0).toFixed(1);
+                     }
 
                      // Override checkbox and inputs are already in place
 
@@ -4029,6 +4036,9 @@ document.addEventListener("DOMContentLoaded", function(){
     if(!sel) return [];
     return Array.from(sel.selectedOptions || []).map((o) => o.value).filter(Boolean);
   }
+  
+
+
 
   async function fetchCountryYearHolidays(countryCode, year){
     const cacheKey = `${countryCode}-${year}`;
@@ -4085,11 +4095,24 @@ document.addEventListener("DOMContentLoaded", function(){
     d.setDate(d.getDate() + 1);
     return d;
   }
-  function readRowLabel(tr, groupBy){
+  function readCellText(tr, idx){
     const tds = qa('td', tr);
-    if(groupBy === 'subphase' || groupBy === 'subPhase') return (tds[1] && tds[1].textContent || '').trim();
-    if(groupBy === 'workitem') return (tds[2] && tds[2].textContent || '').trim();
-    return (tds[0] && tds[0].textContent || '').replace(/[+x]/g, '').trim();
+    
+  const td = tds[idx];
+    if(!td) return '';
+    const input = td.querySelector('input, select, textarea');
+    if(input && typeof input.value === 'string') return input.value.trim();
+    return (td.textContent || '').trim();
+  }
+
+  function readRowLabel(tr, groupBy){
+    if(groupBy === 'subphase' || groupBy === 'subPhase') return readCellText(tr, 1);
+    if(groupBy === 'workitem') return readCellText(tr, 2);
+    return readCellText(tr, 0).replace(/[+x]/g, '').trim();
+  }
+
+  function readRowWorkItem(tr){
+    return readCellText(tr, 2);
   }
 
   function readRowMd(tr){
@@ -4103,7 +4126,7 @@ document.addEventListener("DOMContentLoaded", function(){
     return Number.isFinite(v) ? v : 0;
   }
 
-  function collectGanttTasks(groupBy){
+  function collectGanttTasks(groupBy, selectedWorkItems){
     const tbody = q('#detailedTable tbody');
     if(!tbody) return [];
     const grouped = new Map();
@@ -4111,7 +4134,9 @@ document.addEventListener("DOMContentLoaded", function(){
     qa('tr', tbody).forEach((tr) => {
       const txt = (tr.textContent || '').toUpperCase();
       if(txt.includes('TOTAL DEV EFFORT') || txt.includes('GLOBAL BUFFER') || txt.includes('TOTAL (INCL. BUFFER)')) return;
-      const label = readRowLabel(tr, groupBy);
+      const workItem = readRowWorkItem(tr);
+      if(selectedWorkItems && selectedWorkItems.size && !selectedWorkItems.has(workItem)) return;
+	  const label = readRowLabel(tr, groupBy);
       const md = readRowMd(tr);
       if(!label || md <= 0) return;
       grouped.set(label, (grouped.get(label) || 0) + md);
@@ -4126,14 +4151,15 @@ document.addEventListener("DOMContentLoaded", function(){
     const mdPerWeek = parseFloat(q('#ganttMdPerWeek') && q('#ganttMdPerWeek').value || '');
     const groupBy = (q('#ganttGroupBy') && q('#ganttGroupBy').value) || 'phase';
  const countryCodes = readSelectedCountries();
- 
+  const selectedWorkItems = readSelectedWorkItems();
+  
     if(!wrap) return;
     if(!startDate || !(mdPerWeek > 0)){
       wrap.innerHTML = '<div style="color:#b42318;">Provide a valid start date and capacity (MD per week).</div>';
       return;
     }
 
-    const tasks = collectGanttTasks(groupBy);
+const tasks = collectGanttTasks(groupBy);
     if(!tasks.length){
       wrap.innerHTML = '<div style="color:#344054;">No tasks with effort found. Run calculation first.</div>';
       return;
@@ -4246,15 +4272,19 @@ document.addEventListener("DOMContentLoaded", function(){
     const card = q('#ganttCard');
 
     if(genBtn && card){
-genBtn.addEventListener('click', async function(){
-        card.style.display = '';
+       genBtn.addEventListener('click', async function(){
+	  card.style.display = '';
         const start = q('#ganttStartDate');
         if(start && !start.value) start.value = new Date().toISOString().slice(0,10);
+		refreshGanttWorkItemFilterOptions();
         await renderGantt();
       });
     }
 
-    if(renderBtn) renderBtn.addEventListener('click', renderGantt);
+    if(renderBtn) renderBtn.addEventListener('click', async function(){
+      refreshGanttWorkItemFilterOptions();
+      await renderGantt();
+    });
     if(exportBtn) exportBtn.addEventListener('click', exportGanttPng);
   }
 
