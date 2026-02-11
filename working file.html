@@ -2524,7 +2524,7 @@ function applyOverridesAndRefresh(){
                  const gb = Number(state.risk.globalBufferPct) || 0;
 
                  // Recompute totals from base rows + overrides + global buffer
-                 const items = state.lastCalc.baseRows.map((r, idx) => {
+                 const calcItems = state.lastCalc.baseRows.map((r, idx) => {
                    const rowId = r.id || ("row_" + idx);
 
                    const originalBase = Number(r.baseMd) || 0;
@@ -2562,10 +2562,51 @@ function applyOverridesAndRefresh(){
                    };
                  });
 
+ // Include user-added rows currently visible in the table.
+                 // These rows can be inserted between generated rows, so we must key by row-id
+                 // and never rely on positional index when writing totals back to the table.
+                 const userItems = Array.from(tbody.querySelectorAll('tr[data-user-added="1"]')).map((tr, idx) => {
+                   const rowId = tr.getAttribute("data-row-id") || ("user_row_fallback_" + idx);
+                   const baseRaw = parseFloat(tr.querySelector('[data-user-base-md="1"]')?.value || "");
+                   const baseMd = Number.isFinite(baseRaw) ? baseRaw : 0;
+
+                   const overrideEnabled = !!tr.querySelector('[data-user-override="1"]')?.checked;
+                   const overrideRaw = parseFloat(tr.querySelector('[data-user-override-md="1"]')?.value || "");
+                   const overrideMd = Number.isFinite(overrideRaw) ? overrideRaw : null;
+
+                   const effectiveBase = (overrideEnabled && overrideMd !== null) ? overrideMd : baseMd;
+                   const bufferMd = effectiveBase * (gb / 100);
+                   const totalMd = effectiveBase + bufferMd;
+
+                   return {
+                     id: rowId,
+                     phase: String(tr.querySelector('[data-user-phase="1"]')?.value || "").trim(),
+                     subPhase: String(tr.querySelector('[data-user-sub="1"]')?.value || "").trim(),
+                     workItem: String(tr.querySelector('[data-user-work="1"]')?.value || "").trim(),
+                     qty: String(tr.querySelector('[data-user-qty="1"]')?.value || "1").trim(),
+                     rate: String(tr.querySelector('[data-user-rate="1"]')?.value || "").trim(),
+                     isManual: true,
+
+                     originalBaseMd: baseMd,
+                     baseMd: effectiveBase,
+                     overrideEnabled,
+                     overrideMd: (overrideEnabled && overrideMd !== null) ? overrideMd : null,
+                     notes: String(tr.querySelector('[data-user-notes="1"]')?.value || "").trim(),
+
+                     bufferPct: gb,
+                     bufferMd,
+                     totalMd
+                   };
+                 });
+
+                 const items = calcItems.concat(userItems);
+                 const itemById = Object.fromEntries(items.map((it) => [String(it.id), it]));
+
                  // Update table cells (Base MD stays original, Total is buffered total)
                  const rows = Array.from(tbody.querySelectorAll("tr"));
                  rows.forEach((tr, idx) => {
-                   const it = items[idx];
+                   const rowId = tr.getAttribute("data-row-id") || ("row_" + idx);
+                   const it = itemById[rowId];
                    if(!it) return;
 
                    const tds = Array.from(tr.querySelectorAll("td"));
@@ -2581,6 +2622,11 @@ function applyOverridesAndRefresh(){
 
                      // Total in MD (last column)
                      tds[9].textContent = (Number(it.totalMd) || 0).toFixed(1);
+                   }
+				   // User-added rows keep totals in [data-user-total]
+                   const userTotalTd = tr.querySelector('[data-user-total="1"]');
+                   if(userTotalTd){
+                     userTotalTd.textContent = (Number(it.totalMd) || 0).toFixed(1);
                    }
                  });
 
@@ -3561,6 +3607,172 @@ document.addEventListener("DOMContentLoaded", function(){
       return r;
     };
   }
+  
+  /* --- Gantt generation wiring --- */
+(function(){
+  function q(sel, root){ return (root || document).querySelector(sel); }
+  function qa(sel, root){ return Array.from((root || document).querySelectorAll(sel)); }
+
+  function parseDate(value){
+    if(!value) return null;
+    const d = new Date(value + "T00:00:00");
+    return Number.isFinite(d.getTime()) ? d : null;
+  }
+
+  function readRowLabel(tr, groupBy){
+    const tds = qa('td', tr);
+    if(groupBy === 'subphase' || groupBy === 'subPhase') return (tds[1] && tds[1].textContent || '').trim();
+    if(groupBy === 'workitem') return (tds[2] && tds[2].textContent || '').trim();
+    return (tds[0] && tds[0].textContent || '').replace(/[+x]/g, '').trim();
+  }
+
+  function readRowMd(tr){
+    const userTotal = tr.querySelector('[data-user-total="1"]');
+    if(userTotal){
+      const v = parseFloat(userTotal.textContent || '');
+      return Number.isFinite(v) ? v : 0;
+    }
+    const tds = qa('td', tr);
+    const v = parseFloat((tds[9] && tds[9].textContent || '').trim());
+    return Number.isFinite(v) ? v : 0;
+  }
+
+  function collectGanttTasks(groupBy){
+    const tbody = q('#detailedTable tbody');
+    if(!tbody) return [];
+    const grouped = new Map();
+
+    qa('tr', tbody).forEach((tr) => {
+      const txt = (tr.textContent || '').toUpperCase();
+      if(txt.includes('TOTAL DEV EFFORT') || txt.includes('GLOBAL BUFFER') || txt.includes('TOTAL (INCL. BUFFER)')) return;
+      const label = readRowLabel(tr, groupBy);
+      const md = readRowMd(tr);
+      if(!label || md <= 0) return;
+      grouped.set(label, (grouped.get(label) || 0) + md);
+    });
+
+    return Array.from(grouped.entries()).map(([label, md]) => ({ label, md }));
+  }
+
+  function renderGantt(){
+    const wrap = q('#ganttSvgWrap');
+    const startDate = parseDate(q('#ganttStartDate') && q('#ganttStartDate').value);
+    const mdPerWeek = parseFloat(q('#ganttMdPerWeek') && q('#ganttMdPerWeek').value || '');
+    const groupBy = (q('#ganttGroupBy') && q('#ganttGroupBy').value) || 'phase';
+
+    if(!wrap) return;
+    if(!startDate || !(mdPerWeek > 0)){
+      wrap.innerHTML = '<div style="color:#b42318;">Provide a valid start date and capacity (MD per week).</div>';
+      return;
+    }
+
+    const tasks = collectGanttTasks(groupBy);
+    if(!tasks.length){
+      wrap.innerHTML = '<div style="color:#344054;">No tasks with effort found. Run calculation first.</div>';
+      return;
+    }
+
+    const dayWidth = 10;
+    const rowH = 30;
+    const leftPad = 220;
+    const topPad = 30;
+
+    let dayOffset = 0;
+    const bars = tasks.map((t) => {
+      const days = Math.max(1, Math.ceil((t.md / mdPerWeek) * 7));
+      const start = dayOffset;
+      dayOffset += days;
+      return { ...t, start, days };
+    });
+
+    const totalDays = Math.max(14, dayOffset);
+    const width = leftPad + totalDays * dayWidth + 40;
+    const height = topPad + bars.length * rowH + 30;
+
+    const esc = (s) => String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+
+    let svg = `<svg id="ganttSvg" xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`;
+    svg += `<rect x="0" y="0" width="${width}" height="${height}" fill="#fff"/>`;
+
+    for(let d = 0; d <= totalDays; d += 7){
+      const x = leftPad + d * dayWidth;
+      svg += `<line x1="${x}" y1="${topPad - 10}" x2="${x}" y2="${height - 10}" stroke="#e4e7ec"/>`;
+      const date = new Date(startDate.getTime() + d * 86400000);
+      svg += `<text x="${x + 2}" y="15" font-size="10" fill="#667085">${date.toISOString().slice(0,10)}</text>`;
+    }
+
+    bars.forEach((b, i) => {
+      const y = topPad + i * rowH;
+      const x = leftPad + b.start * dayWidth;
+      const w = Math.max(8, b.days * dayWidth);
+      svg += `<text x="10" y="${y + 17}" font-size="12" fill="#101828">${esc(b.label)}</text>`;
+      svg += `<rect x="${x}" y="${y}" width="${w}" height="18" rx="4" fill="#2e90fa"/>`;
+      svg += `<text x="${x + 6}" y="${y + 13}" font-size="11" fill="#fff">${b.md.toFixed(1)} MD</text>`;
+    });
+
+    svg += '</svg>';
+    wrap.innerHTML = svg;
+  }
+
+  function exportGanttPng(){
+    const svgEl = q('#ganttSvg');
+    if(!svgEl){
+      alert('Render the Gantt first.');
+      return;
+    }
+
+    const xml = new XMLSerializer().serializeToString(svgEl);
+    const svgBlob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(svgBlob);
+    const img = new Image();
+
+    img.onload = function(){
+      const canvas = document.createElement('canvas');
+      canvas.width = svgEl.viewBox.baseVal.width || svgEl.clientWidth;
+      canvas.height = svgEl.viewBox.baseVal.height || svgEl.clientHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+
+      const a = document.createElement('a');
+      a.download = 'gantt.png';
+      a.href = canvas.toDataURL('image/png');
+      a.click();
+    };
+
+    img.onerror = function(){ URL.revokeObjectURL(url); };
+    img.src = url;
+  }
+
+  function wireGantt(){
+    const genBtn = q('#generateGanttBtn');
+    const renderBtn = q('#renderGanttBtn');
+    const exportBtn = q('#exportGanttPngBtn');
+    const card = q('#ganttCard');
+
+    if(genBtn && card){
+      genBtn.addEventListener('click', function(){
+        card.style.display = '';
+        const start = q('#ganttStartDate');
+        if(start && !start.value) start.value = new Date().toISOString().slice(0,10);
+        renderGantt();
+      });
+    }
+
+    if(renderBtn) renderBtn.addEventListener('click', renderGantt);
+    if(exportBtn) exportBtn.addEventListener('click', exportGanttPng);
+  }
+
+  document.addEventListener('DOMContentLoaded', wireGantt);
+})();
+
+
 
   document.addEventListener('DOMContentLoaded', () => {
     try { updateCsvButtonEnabled(); } catch(e) {}
@@ -4399,10 +4611,11 @@ function wireStep1Navigation(){
         sum += (parseFloat(totalTd.textContent) || 0);
         return;
       }
-      // fallback for existing generated rows: last td is total md
+      // fallback for generated rows: last td is total md
       const tds = Array.from(tr.querySelectorAll("td"));
-      if(tds.length >= 10){
-        const v = parseFloat((tds[9].textContent || "").trim());
+      if(tds.length){
+        const lastText = (tds[tds.length - 1].textContent || "").trim();
+        const v = parseFloat(lastText);
         if(Number.isFinite(v)) sum += v;
       }
     });
@@ -4440,7 +4653,7 @@ function wireStep1Navigation(){
     "<td><input class='detailed-input detailed-input-sm' type='number' min='0' step='1' value='1' data-user-qty='1' /></td>" +
     "<td><input class='detailed-input detailed-input-sm' placeholder='Rate' data-user-rate='1' /></td>" +
     "<td><input class='detailed-input detailed-input-md' type='number' min='0' step='0.5' value='0' data-user-base-md='1' /></td>" +
-    "<td style='text-align:center;'><input type='checkbox' class='checkbox-sm' data-user-override='1' /></td>" +
+    "<td style='text-align:center;'><input type='checkbox' class='checkbox-sm' data-user-override='1' disabled /></td>" +
     "<td><input class='detailed-input detailed-input-md' type='number' min='0' step='0.5' value='' disabled data-user-override-md='1' /></td>" +
     "<td><input class='detailed-input' placeholder='Notes and assumptions' data-user-notes='1' /></td>" +
     "<td data-user-total='1'>0.0</td>";
@@ -4451,12 +4664,18 @@ function wireStep1Navigation(){
   const base = tr.querySelector('[data-user-base-md="1"]');
 
   function onChange(){
-    if(ov) ov.disabled = !(cb && cb.checked);
+     if(cb){
+      cb.checked = false;
+      cb.disabled = true;
+    }
+    if(ov){
+      ov.value = "";
+      ov.disabled = true;
+    }
     setRowTotal(tr);
     recomputeGrandTotal();
   }
 
-  if(cb) cb.addEventListener("change", onChange);
   if(ov) ov.addEventListener("input", onChange);
   if(base) base.addEventListener("input", onChange);
 
@@ -4472,6 +4691,18 @@ function wireStep1Navigation(){
   return tr;
 }
 
+  function getRowPhaseValue(tr){
+    if(!tr) return "";
+    const inputPhase = tr.querySelector('[data-user-phase="1"]');
+    if(inputPhase && String(inputPhase.value || "").trim()){
+      return String(inputPhase.value || "").trim();
+    }
+    const firstTd = tr.querySelector("td");
+    if(!firstTd) return "";
+    const clone = firstTd.cloneNode(true);
+    clone.querySelectorAll(".row-add-btn, .row-del-btn, input, button").forEach((n) => n.remove());
+    return (clone.textContent || "").replace(/\s+/g, " ").trim();
+  }
 
   // Expose for import/export persistence
   window.__makeUserDetailedRow = makeUserRow;
@@ -4491,11 +4722,16 @@ function wireStep1Navigation(){
       const newRow = makeUserRow();
       tr.insertAdjacentElement("afterend", newRow);
 
+  const sourcePhase = getRowPhaseValue(tr);
+      const phaseInp = newRow.querySelector('[data-user-phase="1"]');
+      if(phaseInp){
+        phaseInp.value = sourcePhase;
+      }
+	  
       // keep add buttons on all rows (for generated rows that were re-rendered)
       ensureAddButtons();
 
       // focus first input
-      const phaseInp = newRow.querySelector('[data-user-phase="1"]');
       if(phaseInp) phaseInp.focus();
     });
   }
