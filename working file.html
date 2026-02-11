@@ -5064,10 +5064,6 @@ function wireStep1Navigation(){
     if(!tbody) return;
     qsa("tr", tbody).forEach((tr) => {
       if(isSpecialRow(tr)) return;
-	  const isUserEditable = tr.getAttribute("data-user-added") === "1" ||
-        tr.getAttribute("data-manual") === "1" ||
-        !!tr.querySelector('[data-user-phase="1"]');
-      if(!isUserEditable) return;
       const firstTd = tr.querySelector("td");
       if(!firstTd) return;
       if(firstTd.querySelector(".row-add-btn")) return;
