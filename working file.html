@@ -55,17 +55,18 @@
 }
 
          .page{
-         padding:18px;
+         padding:24px;
+		          background: radial-gradient(circle at top right, rgba(0,169,224,0.07), transparent 35%);
          }
          .container{
 		          margin:0 auto;
          background: var(--card);
-         padding:18px;
-         border-radius:10px;
+         padding:24px;
+         border-radius:16px;
          border:1px solid var(--border);
-         box-shadow:0 6px 18px rgba(1,19,58,0.06);
+         box-shadow:0 10px 30px rgba(1,19,58,0.08);
          text-align:left;
-         max-width:1100px;
+         max-width:1180px;
          width:100%;
          position:relative;
          }
@@ -180,17 +181,23 @@
          transform:none;
          }
          .form-header{
-         background:#EEF2F7;
-         padding:12px;
-         border-radius:6px;
-         margin-bottom:12px;
+         background:linear-gradient(120deg, #EEF2F7, #F8FAFD);
+         padding:16px;
+         border-radius:12px;
+         margin-bottom:16px;
          border:1px solid var(--border);
          }
          .form-header h3{
          color: var(--text);
-         font-size:16px;
-         margin-bottom:8px;
+         font-size:20px;
+         margin-bottom:10px;
          font-weight:600;
+         }
+		  .form-header-subtitle{
+         margin:8px 0 0;
+         color:var(--muted);
+         font-size:13px;
+         line-height:1.4;
          }
          .upgrade-type-badge{
          display:inline-block;
@@ -200,6 +207,9 @@
          border-radius:999px;
          font-weight:600;
          font-size:12px;
+         }
+		  .upgrade-type-badge:empty{
+         display:none;
          }
          .note {
          color: #2c3e50;
@@ -215,14 +225,14 @@
          .param-sections{
   display:flex;
   flex-direction:column;
-  gap:12px;
+  gap:16px;
   margin-top:12px;
 }
          .section-card{
          background:#fff;
-         border:1px solid var(--border);
-         border-radius:6px;
-         padding:12px;
+         border-radius:12px;
+         padding:16px;
+         box-shadow:0 3px 14px rgba(1,19,58,0.04);
          }
          
          .span-2{ grid-column: 1 / -1; }
@@ -292,7 +302,7 @@
          }
          .section-title h4{
          margin:0;
-         font-size:13px;
+         font-size:15px;
          font-weight:700;
          color:var(--text);
          }
@@ -319,13 +329,16 @@
          .section-hint{
          font-size:12px;
          color: var(--muted);
-         margin:0 0 10px 0;
-         line-height:1.4;
+         margin:0 0 12px 0;
+         line-height:1.5;
          }
          .form-table{
          width:100%;
          border-collapse:collapse;
          margin-top:6px;
+		 border:1px solid #E9EEF5;
+         border-radius:10px;
+         overflow:hidden;
          }
          /* interfaces rows table: 3 columns (type / qty / remove) */
          .interfaces-table{
@@ -353,8 +366,14 @@
          }
          .form-table td{
          border-bottom:1px solid var(--border);
-         padding:8px 8px;
+         padding:10px 10px;
          vertical-align:middle;
+         }
+		 .form-table tr:nth-child(odd){
+         background:#FCFDFF;
+         }
+         .form-table tr:hover{
+         background:#F4F9FD;
          }
          .form-table td:first-child{
          width:60%;
@@ -367,12 +386,19 @@
          }
          .input-sm{
          width:100%;
-         padding:8px 10px;
+         padding:9px 11px;
          border:1px solid var(--border);
-         border-radius:4px;
+         border-radius:8px;
          font-size:13px;
          background:#FBFCFE;
          color:var(--text);
+         }
+		 .input-sm:focus,
+         input[type=text]:focus,
+         select:focus{
+         border-color: var(--brand-cyan);
+         box-shadow: 0 0 0 3px rgba(0,169,224,0.14);
+         outline:none;
          }
          @media (max-width: 900px){
          .param-sections{ grid-template-columns: 1fr; }
@@ -474,19 +500,40 @@
          box-shadow: 0 0 0 3px rgba(0,169,224,0.15);
          }
          .calculate-btn{
-         background: var(--brand-navy-2);
+         background: linear-gradient(140deg, var(--brand-navy-2), #0a4b99);
          color:#fff;
-         padding:10px 14px;
-         border:1px solid var(--brand-navy-2);
-         border-radius:4px;
+         padding:11px 18px;
+         border:1px solid transparent;
+         border-radius:10px;
          font-size:14px;
          font-weight:600;
          cursor:pointer;
-         box-shadow:none;
+         box-shadow:0 8px 18px rgba(1,19,58,0.2);
          }
          .calculate-btn:hover{
-         transform:none;
-         box-shadow:none;
+         transform: translateY(-1px);
+         box-shadow:0 10px 22px rgba(1,19,58,0.25);
+         }
+
+         #step2ActionsBar{
+         margin-top:22px;
+         display:flex;
+         justify-content:center;
+         padding:14px;
+         background:#fff;
+         border:1px solid var(--border);
+         border-radius:12px;
+         position:sticky;
+         bottom:12px;
+         z-index:6;
+         box-shadow:0 8px 22px rgba(1,19,58,0.12);
+         }
+
+         @media (max-width: 768px){
+         .page{ padding:14px; }
+         .container{ padding:14px; border-radius:12px; }
+         .form-header h3{ font-size:17px; }
+         #step2ActionsBar{ position:static; }
          }
          .results{
          margin-top:16px;
@@ -533,10 +580,15 @@
          }
          .detailed-table{
          font-size:12px;
+		  table-layout:fixed;
          }
          .detailed-table th{
          background:#EEF2F7;
          }
+		 #detailedTable th:nth-child(3),
+         #detailedTable td:nth-child(3){ width:22%; }
+         #detailedTable th:nth-child(9),
+         #detailedTable td:nth-child(9){ width:18%; }
          .total-row{
          font-weight:700;
          background:#F3F6FA !important;
@@ -938,11 +990,11 @@
                        <table class="form-table tech-delta-table">
         <thead>
         <tr>
-          <th>Phase</th>
-          <th>Sub phase</th>
-          <th>Work item</th>
-          <th>Base MD</th>
-          <th>Order (before or after)</th>
+          <th>Technology area</th>
+          <th>Current version</th>
+          <th>Target version</th>
+          <th>Development effort required</th>
+          <th>DevOps Only</th>
           <th></th>
           <th></th>
         </tr>
@@ -1950,7 +2002,8 @@ function generateCSV(parentKey) {
       "Components",
       "Affects versions",
       "Custom field (Sapiens Product)",
-           "Competence Center"
+      "Competence Center",
+	   "Dev MD Estimation (Final)"
     ].map(csvEscape).join(","));
 
     let exportedCount = 0;
@@ -1999,11 +2052,11 @@ function generateCSV(parentKey) {
 
      const summaryParts = [phase, subPhase, workItem]
         .map((v) => stripHelpIconSuffix(v))
-        .map((v) => String(v || "").trim())
+        .map((v) => String(v || " ").trim())
         .filter(Boolean);
       const summary = summaryParts.join("	") || "Sub-task";
 
-      const notesClean = String(notes || "").trim();
+      const notesClean = String(notes || " ").trim();
       const description = notesClean ? `${summary}
 ${notesClean}` : summary;
 
@@ -2015,7 +2068,8 @@ ${notesClean}` : summary;
         defaults.components,
         defaults.affectsVersions,
         defaults.sapiensProduct,
-        defaults.competenceCenter
+        defaults.competenceCenter,
+        totalMd
       ];
 
       csvLines.push(row.map(csvEscape).join(","));
@@ -2400,8 +2454,14 @@ function applyOverridesAndRefresh(){
 
                  const trList = Array.from(tbody.querySelectorAll("tr"));
 
-                 // Ensure rows have the new columns. If calculateEffort just ran, table currently has 6 cells.
+                 const isSummaryRow = (tr) => {
+                   const txt = (tr.textContent || "").toUpperCase();
+                       return txt.includes("TOTAL DEV EFFORT") || txt.includes("GLOBAL BUFFER") || txt.includes("NOTES / ASSUMPTIONS") || txt.includes("TOTAL (INCL. BUFFER)");
+                 };
+
+                 // Ensure regular data rows have the new columns. If calculateEffort just ran, table currently has 6 cells.
                  trList.forEach((tr, idx) => {
+				 if(isSummaryRow(tr)) return;
                    const rowId = tr.getAttribute("data-row-id") || ("row_" + idx);
                    tr.setAttribute("data-row-id", rowId);
 
@@ -2457,13 +2517,9 @@ function applyOverridesAndRefresh(){
                  });
 
                  wireOverrideInputs();
+const gb = Number(state.risk?.globalBufferPct) || 0;
 
-
-                 // Recompute totals from base rows + overrides + global buffer
-                const isSummaryRow = (tr) => {
-                   const txt = (tr.textContent || "").toUpperCase();
-                   return txt.includes("TOTAL DEV EFFORT") || txt.includes("GLOBAL BUFFER") || txt.includes("TOTAL (INCL. BUFFER)");
-                 };
+                
 
 // Recompute totals directly from current DOM rows so overrides always match what user sees.
                  const items = Array.from(tbody.querySelectorAll("tr")).map((tr, idx) => {
@@ -2590,11 +2646,19 @@ const subtotalWithoutBuffer = items.reduce((s, it) => s + (Number(it.baseMd) || 
                  });
 
                  
-                 const grandTotal = subtotalWithoutBuffer + bufferTotal;
+                 const totalWithBuffer = subtotalWithoutBuffer + bufferTotal;
+
+                 // Keep TOTAL DEV EFFORT row synced with recalculated subtotal (without buffer)
+                 const totalDevRow = Array.from(tbody.querySelectorAll("tr")).find(tr => (tr.textContent || "").includes("TOTAL DEV EFFORT"));
+                 if(totalDevRow){
+                   const tds = Array.from(totalDevRow.querySelectorAll("td"));
+                   const last = tds[tds.length - 1];
+                   if(last) last.innerHTML = "<strong>" + subtotalWithoutBuffer.toFixed(1) + "</strong>";
+                 }
 
                  // Update UI totals
                  if(el("totalEffort")){
-                   el("totalEffort").textContent = "Total " + Math.round(grandTotal) + " MD";
+                   el("totalEffort").textContent = "Total " + Math.round(totalWithBuffer) + " MD";
                    updateExecutiveSummaryTiles();
                  }
 const pctCell = document.getElementById("bufferPctDisplay");
@@ -2602,8 +2666,7 @@ const pctCell = document.getElementById("bufferPctDisplay");
                  const mdCell = document.getElementById("bufferMdDisplay");
                  if(mdCell) mdCell.textContent = (Number(bufferTotal) || 0).toFixed(1);
                  const totalInclCell = document.getElementById("totalInclBufferDisplay");
-                 if(totalInclCell) totalInclCell.textContent = (Number(grandTotal) || 0).toFixed(1);
-
+if(totalInclCell) totalInclCell.textContent = (Number(totalWithBuffer) || 0).toFixed(1);
                  
                  // Update phase summary (based on overridden totals)
                  const phaseSummary = el("phaseSummary");
@@ -2623,11 +2686,11 @@ const pctCell = document.getElementById("bufferPctDisplay");
 // Update window.calculationData for CSV and external usage
                  window.calculationData = {
                    upgradeType: state.lastCalc.upgradeTypeLabel,
-                   total: Math.round(grandTotal),
+                   total: Math.round(totalWithBuffer),
                    totals: {
                      subtotalWithoutBuffer: subtotalWithoutBuffer,
                      bufferTotal: bufferTotal,
-                     grandWithBuffer: grandTotal
+                     grandWithBuffer: totalWithBuffer
                    },
                    risk: {
                      globalBufferMode: state.risk.globalBufferMode,
@@ -3155,8 +3218,8 @@ const detailedBody = document.querySelector("#detailedTable tbody");
   "<tr>" +
     "<td colspan='5'>Global Buffer</td>" +
     "<td>" +
-      "<div style='display:flex; gap:8px; align-items:center; justify-content:flex-end; flex-wrap:wrap;'>" +
-        "<select id='globalBufferMode' class='input-sm' style='width:88px;'>" +
+      "<div style='display:flex; gap:6px; align-items:center; justify-content:flex-end; flex-wrap:nowrap;'>" +
+	  "<select id='globalBufferMode' class='input-sm' style='width:88px;'>" +
           "<option value='pct'" + ((state.risk.globalBufferMode || 'pct') === 'pct' ? " selected" : "") + ">% </option>" +
           "<option value='md'" + ((state.risk.globalBufferMode || 'pct') === 'md' ? " selected" : "") + ">MD</option>" +
         "</select>" +
@@ -3164,8 +3227,11 @@ const detailedBody = document.querySelector("#detailedTable tbody");
       "</div>" +
     "</td>" +
   "</tr>" +
-  "<tr><td colspan='5'>Global Buffer %</td><td id='bufferPctDisplay'>" + ((__buf.pct && Number.isFinite(__buf.pct)) ? (__buf.pct.toFixed(1) + '%') : '0%') + "</td></tr>" +
-  "<tr><td colspan='5'>Global Buffer (MD)</td><td id='bufferMdDisplay'>" + (__buf.md ? __buf.md.toFixed(1) : '0.0') + "</td></tr>" +
+"<tr><td colspan='5'>Global Buffer Summary</td><td><div style='display:flex; align-items:center; justify-content:flex-end; gap:12px; flex-wrap:wrap;'><span>" +
+    "<strong id='bufferPctDisplay'>" + ((__buf.pct && Number.isFinite(__buf.pct)) ? (__buf.pct.toFixed(1) + '%') : '0%') + "</strong>" +
+    "</span><span>" +
+    "<strong id='bufferMdDisplay'>" + (__buf.md ? __buf.md.toFixed(1) : '0.0') + "</strong> MD" +
+    "</span></div></td></tr>" +  
   "<tr><td colspan='5'>Notes / Assumptions</td><td><input id='globalBufferNotes' class='input-sm' type='text' placeholder='Optional notes' value='" + escapeHtml(String(state.risk.bufferReason || '')) + "' style='width:100%;' /></td></tr>" +
   "<tr><td colspan='5'><strong>Total (incl. buffer)</strong></td><td><strong id='totalInclBufferDisplay'>" + totalDevWithBuffer.toFixed(1) + "</strong></td></tr>";
 
@@ -3834,11 +3900,18 @@ document.addEventListener("DOMContentLoaded", function(){
             <div class="modal-body">
                <!-- WRITE YOUR INSTRUCTIONS HERE -->
                <ol>
-                  <li>Open Jira and go to the target project.</li>
-                  <li>TODO: Regina +  add common failures in jira upload</li>
-                  <li>TODO: Regina</li>
-                  <li>TODO: Regina</li>
-                  <li>TODO: Regina</li>
+                  <li>Open https://sapiens-digital.atlassian.net/issues/</li>
+                  <li>In the top right corner, click the three dots (...) next to Share and Export.</li>
+                  <li>Select Import work items from CSV.</li>
+                  <li>The Bulk create: Setup screen opens. Click Choose File and select the CSV file.</li>
+                  <li>Click Next.</li>
+				  <li>Select the target project in Import to Project.</li>
+<li>Leave all other settings as they are and click Next.</li>
+<li>In Map fields, match each CSV field to the same Jira field.</li>
+<li>For example: CSV field Affects versions → Jira field Affects versions.</li>
+<li>Click Next.</li>
+<li>In Map values, no changes are required.</li>
+<li>Click Next to complete the import.</li>
                </ol>
 
                <!-- Screenshots example -->
@@ -4560,8 +4633,8 @@ function wireStep1Navigation(){
     const tds = Array.from(tr.querySelectorAll("td"));
     if(!tds.length) return true;
     const txt = (tr.textContent || "").toUpperCase();
-    return txt.includes("TOTAL DEV EFFORT") || txt.includes("GLOBAL BUFFER") || txt.includes("TOTAL (INCL. BUFFER)");
-  }
+    return txt.includes("TOTAL DEV EFFORT") || txt.includes("GLOBAL BUFFER") || txt.includes("NOTES / ASSUMPTIONS") || txt.includes("TOTAL (INCL. BUFFER)");
+	}
 
   function ensureAddButtons(){
     const tbody = qs("#detailedTable tbody");
