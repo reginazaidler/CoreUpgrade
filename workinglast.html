@@ -14,7 +14,17 @@
          --border:#D9DEE7;
          --text:#1F2A44;
          --muted:#6B778C;
-
+		--btn-radius:10px;
+         --btn-height:42px;
+         --font-display:clamp(1.75rem, 1.15rem + 1.5vw, 2.25rem);
+         --font-h2:clamp(1.05rem, 0.95rem + 0.35vw, 1.3rem);
+         --font-h3:1rem;
+         --font-body:0.95rem;
+         --font-small:0.825rem;
+         --font-xs:0.76rem;
+         --lh-tight:1.25;
+         --lh-body:1.55;
+		 
          --sapiens-blue: var(--brand-navy-2);
          --sapiens-cyan: var(--brand-cyan);
          }
@@ -70,17 +80,65 @@
          width:100%;
          position:relative;
          }
-         .step-indicator{
+         .stepper{
          position:absolute;
          top:12px;
          right:12px;
-         background:#EEF2F7;
-         padding:6px 10px;
-         border-radius:6px;
+         
+		 width:min(250px, 42vw);
+         display:flex;
+         flex-direction:column;
+         gap:8px;
+         }
+         .stepper-track{
+         position:relative;
+         height:6px;
+         border-radius:999px;
+         background:#E6ECF5;
+         overflow:hidden;
+         }
+         .stepper-progress{
+         height:100%;
+         width:0%;
+         border-radius:inherit;
+         background:linear-gradient(90deg, var(--brand-blue), #35B8F1);
+         transition:width .25s ease;
+         }
+         .stepper-points{
+         display:flex;
+         justify-content:space-between;
+         align-items:flex-start;
+         }
+         .stepper-point{
+         display:flex;
+         flex-direction:column;
+         align-items:center;
+         gap:4px;
+         min-width:82px;
+         color:#8B97A8;
+         font-size:11px;
          font-weight:600;
-         color: var(--text);
-         font-size:12px;
-         border:1px solid var(--border);
+         text-transform:uppercase;
+         letter-spacing:0.04em;
+         transition:color .2s ease;
+         }
+         .stepper-point-dot{
+         width:14px;
+         height:14px;
+         border-radius:50%;
+         border:2px solid #B9C5D8;
+         background:#fff;
+         box-shadow:0 0 0 2px rgba(255,255,255,0.85);
+         transition:all .2s ease;
+         }
+         .stepper-point.active,
+         .stepper-point.completed{
+         color:var(--brand-navy-2);
+         }
+         .stepper-point.active .stepper-point-dot,
+         .stepper-point.completed .stepper-point-dot{
+         border-color:var(--brand-blue);
+         background:var(--brand-blue);
          }
          
          h1 {
@@ -141,44 +199,66 @@
          font-size: 13px;
          line-height: 1.5;
          }
-         .next-button {
+         .next-button,
+         .calculate-btn,
+         .back-button,
+         .csv-btn,
+         .icon-btn{
+         border-radius:var(--btn-radius);
+         font-weight:600;
+         font-size:13px;
+         cursor:pointer;
+         border:1px solid transparent;
+         min-height:var(--btn-height);
+         transition:background-color .2s ease, color .2s ease, border-color .2s ease, transform .15s ease, box-shadow .2s ease;
+         display:inline-flex;
+         align-items:center;
+         justify-content:center;
+         gap:6px;
+         }
+         .next-button,
+         .calculate-btn{
          background: linear-gradient(135deg, var(--brand-cyan), var(--brand-navy-2));
-         color: white;
-         padding: 16px 40px;
-         border: none;
-         border-radius: 50px;
-         font-size: 16px;
-         font-weight: 600;
-         cursor: pointer;
-         transition: all 0.3s ease;
-         box-shadow: 0 8px 25px rgba(0,169,224,0.3);
-         width: 100%;
-         margin-top: 14px;
+         color:#fff;
+         border-color:transparent;
+         box-shadow:0 8px 20px rgba(0,169,224,0.25);
+         padding:10px 16px;
          }
-         .next-button:hover:not(:disabled) {
-         transform: translateY(-2px);
-         box-shadow: 0 12px 35px rgba(0,169,224,0.4);
+         .next-button{
+         width:100%;
+         margin-top:14px;
+         font-size:15px;
+         min-height:48px;
          }
-         .next-button:disabled {
-         background: #bdc3c7;
-         cursor: not-allowed;
-         transform: none;
-         box-shadow: none;
+         .next-button:hover:not(:disabled),
+         .calculate-btn:hover:not(:disabled){
+         transform:translateY(-1px);
+         box-shadow:0 10px 22px rgba(0,169,224,0.3);
+         }
+         .next-button:disabled,
+         .calculate-btn:disabled,
+         .back-button:disabled,
+         .csv-btn:disabled,
+         .icon-btn:disabled{
+         background:#E2E8F1;
+         color:#8A95A6;
+         border-color:#D0D8E4;
+         cursor:not-allowed;
+         box-shadow:none;
+         transform:none;
          }
          .form-section { display: none; text-align: left; }
          .back-button{
          background:#fff;
-         color: var(--brand-navy-2);
-         padding:8px 12px;
-         border:1px solid var(--border);
-         border-radius:4px;
-         font-size:13px;
-         cursor:pointer;
+         color:var(--brand-navy-2);
+         border-color:var(--border);
+         padding:9px 14px;
+         margin-bottom:12px;
+         }
          margin-bottom:12px;
          }
          .back-button:hover{
          background:#F3F6FA;
-         transform:none;
          }
          .form-header{
          background:linear-gradient(120deg, #EEF2F7, #F8FAFD);
@@ -831,6 +911,7 @@
 }
 .row-add-btn:hover{ background:#f3f6fb; }
 .row-add-btn:active{ transform:translateY(1px); }
+.row-add-btn::before{ content:"+"; }
 
 .detailed-input{
   width:100%;
@@ -908,7 +989,7 @@
 
 <div class="page">
             <div class="container">
-               <div class="step-indicator" id="stepIndicator">Step 1 of 2</div>
+               <div class="step-indicator" data-step-indicator>Page 1 of 2</div>
                <!-- Step 1 -->
                <div id="step1">
                   <h1>Core Upgrade Effort Estimator</h1>
@@ -968,7 +1049,7 @@
                <div id="step2" class="form-section">
                   <button class="back-button" onclick="goBack()">Back</button>
                   <div class="form-header">
-				    <div class="step-indicator" id="stepIndicator">Step 2 of 2</div>
+				    <div class="step-indicator" data-step-indicator>Page 2 of 2</div>
                      <h3>Project Parameters</h3>
                      <span class="upgrade-type-badge" id="upgradeTypeBadge"></span>
                   </div>
@@ -2587,7 +2668,7 @@ function updateTotalsFromItems(items){
   if(ps && Array.isArray(items)){
     const byPhase = {};
     items.forEach(it => {
-      const ph = String(it.phase || "").trim();
+      const ph = String(it.phase || "").replace(/^\+\s*/, "").trim();
       const md = Number(it.totalMd);
       if(!ph || !Number.isFinite(md)) return;
       byPhase[ph] = (byPhase[ph] || 0) + md;
@@ -2842,7 +2923,7 @@ if(totalInclCell) totalInclCell.textContent = (Number(totalWithBuffer) || 0).toF
                  if(phaseSummary){
                    const phaseTotals = {};
                    items.forEach(it => {
-                     const ph = String(it.phase || "").trim() || "Other";
+const ph = String(it.phase || "").replace(/^\+\s*/, "").trim() || "Other";
                      phaseTotals[ph] = (phaseTotals[ph] || 0) + (Number(it.totalMd) || 0);
                    });
                    const rowsHtml = Object.keys(phaseTotals).sort().map(ph =>
@@ -3452,14 +3533,14 @@ const detailedBody = document.querySelector("#detailedTable tbody");
 
                  const customerDerivedRow = Array.from(detailedBody.querySelectorAll("tr")).find((tr) => {
                    const tds = tr.querySelectorAll("td");
-                   const phase = (tds[0]?.textContent || "").trim();
+                                      const phase = (tds[0]?.textContent || "").replace(/^\+\s*/, "").trim();
                    const workItem = (tds[2]?.textContent || "").trim();
                    return phase === "Customer testing" && workItem.toLowerCase().includes("customer testing - derived");
                  });
 
                  const performanceBaseRow = Array.from(detailedBody.querySelectorAll("tr")).find((tr) => {
                    const tds = tr.querySelectorAll("td");
-                   const phase = (tds[0]?.textContent || "").trim();
+                   const phase = (tds[0]?.textContent || "").replace(/^\+\s*/, "").trim();
                    return phase === "Performance";
                  });
 
@@ -4911,7 +4992,13 @@ fromSel.addEventListener("input", updateTechDashboard);
 }
 // --- End restored wiring ---
 
-// --- Patch: Step navigation wiring (Continue to parameters) ---
+function setStepIndicator(step){
+  const normalizedStep = Number(step) >= 2 ? 2 : 1;
+  document.querySelectorAll("[data-step-indicator]").forEach((indicator) => {
+    indicator.textContent = `Page ${normalizedStep} of 2`;
+  });
+}
+
 function showStep(step){
   const s1 = document.getElementById("step1");
   const s2 = document.getElementById("step2");
@@ -5010,10 +5097,7 @@ const fromSel = document.getElementById("coreFrom");
     if(!tbody) return;
     qsa("tr", tbody).forEach((tr) => {
       if(isSpecialRow(tr)) return;
-	  const isUserEditable = tr.getAttribute("data-user-added") === "1" ||
-        tr.getAttribute("data-manual") === "1" ||
-        !!tr.querySelector('[data-user-phase="1"]');
-      if(!isUserEditable) return;
+	  
       const firstTd = tr.querySelector("td");
       if(!firstTd) return;
       if(firstTd.querySelector(".row-add-btn")) return;
@@ -5022,7 +5106,7 @@ const fromSel = document.getElementById("coreFrom");
       btn.type = "button";
       btn.className = "row-add-btn";
       btn.title = "Add row below";
-      btn.textContent = "+";
+      btn.textContent = "";
       btn.setAttribute("data-add-row", "1");
       firstTd.prepend(btn);
     });
@@ -5096,7 +5180,7 @@ const fromSel = document.getElementById("coreFrom");
 
   tr.innerHTML =
     "<td>" +
-      "<button type='button' class='row-add-btn' title='Add row below' data-add-row='1'>+</button>" +
+            "<button type='button' class='row-add-btn' title='Add row below' data-add-row='1'></button>" +
       "<button type='button' class='row-del-btn' title='Delete row' data-del-row='1'>x</button>" +
       "<input class='detailed-input' placeholder='Phase' data-user-phase='1' />" +
     "</td>" +
