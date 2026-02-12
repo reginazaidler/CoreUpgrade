@@ -2025,7 +2025,7 @@ function getDetailedTableRowsForManagerExport() {
   trs.forEach((tr) => {
     if (tr.classList.contains("table-section-header")) return;
 
-		
+		const tds = Array.from(tr.querySelectorAll("td"));
     if (!tds.length) return;
 
     const getCellText = (cell) => {
@@ -2061,11 +2061,60 @@ function getDetailedTableRowsForManagerExport() {
 
   return rows;
 }
+function getExecutiveSummaryForManagerExport() {
+  const getVal = (id) => {
+    const el = document.getElementById(id);
+    return el ? String(el.textContent || "").trim() : "";
+  };
+
+  return [
+    { metric: "Upgrade type", value: (state.lastCalc && state.lastCalc.upgradeTypeLabel) || "" },
+    { metric: "From version", value: getSelectedOptionText("coreFrom") },
+    { metric: "To version", value: getSelectedOptionText("coreTo") },
+    { metric: "Total effort", value: getVal("tileTotal") },
+    { metric: "Build and System test", value: getVal("tileBuild") },
+    { metric: "Customer testing", value: getVal("tileCustomer") },
+    { metric: "Global buffer", value: getVal("tileBufferMd") }
+  ];
+}
+
+function getPhaseSummaryRowsForManagerExport() {
+  const tbody = document.getElementById("phaseSummary");
+  if (!tbody) return [];
+
+  return Array.from(tbody.querySelectorAll("tr")).map((tr) => {
+    const tds = Array.from(tr.querySelectorAll("td"));
+    return {
+      phase: String((tds[0] && tds[0].textContent) || "").trim(),
+      effortMd: String((tds[1] && tds[1].textContent) || "").trim()
+    };
+  }).filter((r) => r.phase || r.effortMd);
+}
 
 function downloadManagerExportCsv() {
   try {
-    const rows = getDetailedTableRowsForManagerExport();
-    const header = [
+     const detailedRows = getDetailedTableRowsForManagerExport();
+    const executiveRows = getExecutiveSummaryForManagerExport();
+    const phaseRows = getPhaseSummaryRowsForManagerExport();
+
+    const csvLines = [];
+
+    csvLines.push(csvEscape("Executive Summary"));
+    csvLines.push(["Metric", "Value"].map(csvEscape).join(","));
+    executiveRows.forEach((row) => {
+      csvLines.push([excelSafeText(row.metric), excelSafeText(row.value)].map(csvEscape).join(","));
+    });
+
+    csvLines.push("");
+    csvLines.push(csvEscape("Phase Summary"));
+    csvLines.push(["Phase", "Effort (in MD)"].map(csvEscape).join(","));
+    phaseRows.forEach((row) => {
+      csvLines.push([excelSafeText(row.phase), excelSafeText(row.effortMd)].map(csvEscape).join(","));
+    });
+
+    csvLines.push("");
+    csvLines.push(csvEscape("Detailed Breakdown"));
+    const detailedHeader = [
       "Upgrade type",
       "Phase",
       "Sub phase",
@@ -2078,11 +2127,10 @@ function downloadManagerExportCsv() {
       "Notes",
       "Total MD"
     ];
+	csvLines.push(detailedHeader.map(csvEscape).join(","));
 
     const upgradeType = (state.lastCalc && state.lastCalc.upgradeTypeLabel) || "";
-    const csvLines = [header.map(csvEscape).join(",")];
-
-    rows.forEach((row) => {
+      detailedRows.forEach((row) => {
       csvLines.push([
         excelSafeText(upgradeType),
         excelSafeText(row.phase),
@@ -2188,6 +2236,44 @@ function getDetailedRowModelForCsv(tr) {
   };
 }
 
+function validateUserAddedRowsMandatory(){
+  const tbody = document.querySelector("#detailedTable tbody");
+  if(!tbody) return { valid: true, message: "" };
+
+  const invalidRows = [];
+  const userRows = Array.from(tbody.querySelectorAll('tr[data-user-added="1"]'));
+
+  userRows.forEach((tr, idx) => {
+    const rowNumber = idx + 1;
+    const getVal = (sel) => String(tr.querySelector(sel)?.value || "").trim();
+
+    const phase = getVal('[data-user-phase="1"]');
+    const subPhase = getVal('[data-user-sub="1"]');
+    const workItem = getVal('[data-user-work="1"]');
+
+    const totalRaw = parseFloat(String(tr.querySelector('[data-user-total="1"]')?.textContent || "").trim());
+    const baseRaw = parseFloat(getVal('[data-user-base-md="1"]'));
+    const totalMd = Number.isFinite(totalRaw) ? totalRaw : (Number.isFinite(baseRaw) ? baseRaw : 0);
+
+    const missing = [];
+    if(!phase) missing.push("Phase");
+    if(!subPhase) missing.push("Sub phase");
+    if(!workItem) missing.push("Work item");
+    if(!(totalMd > 0)) missing.push("Total in MD (> 0)");
+
+    if(missing.length){
+      invalidRows.push(`Row ${rowNumber}: ${missing.join(', ')}`);
+    }
+  });
+
+  if(!invalidRows.length) return { valid: true, message: "" };
+
+  return {
+    valid: false,
+    message: "Mandatory values are missing in user-added rows. Please complete these fields before continuing:\n" + invalidRows.join("\n")
+  };
+}
+
 function generateCSV(parentKey) {
   try {
     const defaults = window.jiraDefaults || {
@@ -2203,6 +2289,11 @@ function generateCSV(parentKey) {
     const tbody = document.querySelector("#detailedTable tbody");
     if (!tbody) throw new Error("Detailed breakdown table not found.");
 
+const userRowsValidation = validateUserAddedRowsMandatory();
+    if(!userRowsValidation.valid){
+      alert(userRowsValidation.message);
+      return;
+    }
     const isSummaryLike = (t) => {
       const s = String(t || "").trim().toLowerCase();
       return (
@@ -3067,6 +3158,9 @@ function computeGlobalBufferMd(totalDevMd){
                }
 
 function calculateEffort() {
+if(typeof validateUserAddedDetailedRows === "function" && !validateUserAddedDetailedRows()){
+    return;
+  }
   readRiskInputsToState();
 			   const perfRequired = el("performanceRequired")?.checked;
                const perfEffort = perfRequired ? (parseInt(el("performanceMd")?.value, 10) || 10) : 0;
@@ -4115,6 +4209,65 @@ document.addEventListener("DOMContentLoaded", function(){
     return readCellText(tr, 2);
   }
 
+ function readSelectedWorkItems(){
+    const sel = q('#ganttWorkItemFilter');
+    if(!sel) return new Set();
+    return new Set(Array.from(sel.selectedOptions || []).map((o) => String(o.value || '').trim()).filter(Boolean));
+  }
+
+  function refreshGanttWorkItemFilterOptions(){
+    const sel = q('#ganttWorkItemFilter');
+    if(!sel) return;
+    const tbody = q('#detailedTable tbody');
+    if(!tbody) return;
+
+    const selected = new Set(Array.from(sel.selectedOptions || []).map((o) => o.value));
+    const workItems = new Set();
+
+    qa('tr', tbody).forEach((tr) => {
+      const txt = (tr.textContent || '').toUpperCase();
+      if(txt.includes('TOTAL DEV EFFORT') || txt.includes('GLOBAL BUFFER') || txt.includes('TOTAL (INCL. BUFFER)')) return;
+      const wi = readRowWorkItem(tr);
+      if(wi) workItems.add(wi);
+    });
+
+    const sorted = Array.from(workItems).sort((a, b) => a.localeCompare(b));
+    sel.innerHTML = sorted.map((wi) => `<option value="${wi.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')}">${wi.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</option>`).join('');
+    Array.from(sel.options).forEach((o) => {
+      if(selected.has(o.value)) o.selected = true;
+    });
+  }
+  
+  function validateUserAddedRowsForGantt(){
+    const tbody = q('#detailedTable tbody');
+    if(!tbody) return { valid: true, message: '' };
+
+    const invalidRows = [];
+    qa('tr[data-user-added="1"]', tbody).forEach((tr, idx) => {
+      const rowNumber = idx + 1;
+      const phase = readCellText(tr, 0);
+      const subPhase = readCellText(tr, 1);
+      const workItem = readCellText(tr, 2);
+      const md = readRowMd(tr);
+
+      const missing = [];
+      if(!phase) missing.push('Phase');
+      if(!subPhase) missing.push('Sub phase');
+      if(!workItem) missing.push('Work item');
+      if(!(md > 0)) missing.push('Total in MD (> 0)');
+
+      if(missing.length){
+        invalidRows.push(`Row ${rowNumber}: ${missing.join(', ')}`);
+      }
+    });
+
+    if(!invalidRows.length) return { valid: true, message: '' };
+
+    return {
+      valid: false,
+      message: 'Mandatory values are missing in user-added rows. Please complete these fields before building the Gantt:\n' + invalidRows.join('\n')
+    };
+  }
   function readRowMd(tr){
     const userTotal = tr.querySelector('[data-user-total="1"]');
     if(userTotal){
@@ -4144,6 +4297,15 @@ document.addEventListener("DOMContentLoaded", function(){
 
     return Array.from(grouped.entries()).map(([label, md]) => ({ label, md }));
   }
+  
+   function validateUserAddedRowsForGantt(){
+    const base = validateUserAddedRowsMandatory();
+    if(base.valid) return base;
+    return {
+      valid: false,
+      message: String(base.message || '').replace('before continuing:', 'before building the Gantt:')
+    };
+  }
 
   async  function renderGantt(){
     const wrap = q('#ganttSvgWrap');
@@ -4159,7 +4321,14 @@ document.addEventListener("DOMContentLoaded", function(){
       return;
     }
 
-const tasks = collectGanttTasks(groupBy);
+const userRowsValidation = validateUserAddedRowsForGantt();
+    if(!userRowsValidation.valid){
+      wrap.innerHTML = '<div style="color:#b42318; white-space:pre-line;">' + userRowsValidation.message + '</div>';
+      alert(userRowsValidation.message);
+      return;
+    }
+
+const tasks = collectGanttTasks(groupBy, selectedWorkItems);
     if(!tasks.length){
       wrap.innerHTML = '<div style="color:#344054;">No tasks with effort found. Run calculation first.</div>';
       return;
@@ -5186,6 +5355,63 @@ const fromSel = document.getElementById("coreFrom");
 
     if(totalTd) totalTd.textContent = total.toFixed(1);
   }
+  
+    function setRequiredState(input, isValid){
+    if(!input) return;
+    if(isValid){
+      input.style.borderColor = "";
+      input.style.boxShadow = "";
+      input.removeAttribute("aria-invalid");
+    }else{
+      input.style.borderColor = "#d92d20";
+      input.style.boxShadow = "0 0 0 2px rgba(217,45,32,0.15)";
+      input.setAttribute("aria-invalid", "true");
+    }
+  }
+
+  function validateUserAddedDetailedRows(){
+    const tbody = qs("#detailedTable tbody");
+    if(!tbody) return true;
+
+    const rows = qsa('tr[data-user-added="1"]', tbody);
+    let firstInvalid = null;
+    let hasInvalid = false;
+
+    rows.forEach((tr) => {
+      const phase = tr.querySelector('[data-user-phase="1"]');
+      const sub = tr.querySelector('[data-user-sub="1"]');
+      const work = tr.querySelector('[data-user-work="1"]');
+      const md = tr.querySelector('[data-user-base-md="1"]');
+
+      const phaseOk = !!String(phase && phase.value || "").trim();
+      const subOk = !!String(sub && sub.value || "").trim();
+      const workOk = !!String(work && work.value || "").trim();
+      const mdValue = parseFloat(md ? md.value : "");
+      const mdOk = Number.isFinite(mdValue) && mdValue > 0;
+
+      [
+        [phase, phaseOk],
+        [sub, subOk],
+        [work, workOk],
+        [md, mdOk]
+      ].forEach(([el, ok]) => {
+        setRequiredState(el, ok);
+        if(!ok && !firstInvalid) firstInvalid = el;
+        if(!ok) hasInvalid = true;
+      });
+    });
+
+    if(hasInvalid){
+      alert("Added rows require: Phase, Sub phase, Work item and MD greater than 0.");
+      if(firstInvalid && typeof firstInvalid.focus === "function") firstInvalid.focus();
+      return false;
+    }
+
+    return true;
+  }
+
+  window.validateUserAddedDetailedRows = validateUserAddedDetailedRows;
+
 
   function recomputeGrandTotal(){
    if(typeof applyOverridesAndRefresh === "function" && window.state?.lastCalc){
@@ -5238,13 +5464,13 @@ const fromSel = document.getElementById("coreFrom");
     "<td>" +
             "<button type='button' class='row-add-btn' title='Add row below' data-add-row='1'></button>" +
       "<button type='button' class='row-del-btn' title='Delete row' data-del-row='1'>x</button>" +
-      "<input class='detailed-input' placeholder='Phase' data-user-phase='1' />" +
-    "</td>" +
-    "<td><input class='detailed-input' placeholder='Sub phase' data-user-sub='1' /></td>" +
-    "<td><input class='detailed-input' placeholder='Work item' data-user-work='1' /></td>" +
+      "<input class='detailed-input' placeholder='Phase' data-user-phase='1' required />" +
+	  "</td>" +
+    "<td><input class='detailed-input' placeholder='Sub phase' data-user-sub='1' required /></td>" +
+    "<td><input class='detailed-input' placeholder='Work item' data-user-work='1' required /></td>" +
     "<td><input class='detailed-input detailed-input-sm' type='number' min='0' step='1' value='1' data-user-qty='1' /></td>" +
     "<td><input class='detailed-input detailed-input-sm' placeholder='Rate' data-user-rate='1' /></td>" +
-    "<td><input class='detailed-input detailed-input-md' type='number' min='0' step='0.5' value='0' data-user-base-md='1' /></td>" +
+    "<td><input class='detailed-input detailed-input-md' type='number' min='0.5' step='0.5' value='' data-user-base-md='1' required /></td>" +
     "<td style='text-align:center;'><input type='checkbox' class='checkbox-sm' data-user-override='1' disabled /></td>" +
     "<td><input class='detailed-input detailed-input-md' type='number' min='0' step='0.5' value='' disabled data-user-override-md='1' /></td>" +
     "<td><input class='detailed-input' placeholder='Notes and assumptions' data-user-notes='1' /></td>" +
@@ -5256,7 +5482,9 @@ const fromSel = document.getElementById("coreFrom");
   const base = tr.querySelector('[data-user-base-md="1"]');
 
   function onChange(){
-    
+     const mdInput = tr.querySelector('[data-user-base-md="1"]');
+    const mdValue = parseFloat(mdInput ? mdInput.value : "");
+    setRequiredState(mdInput, Number.isFinite(mdValue) && mdValue > 0);
     setRowTotal(tr);
     recomputeGrandTotal();
   }
@@ -5265,6 +5493,18 @@ const fromSel = document.getElementById("coreFrom");
 
   if(ov) ov.addEventListener("input", onChange);
   if(base) base.addEventListener("input", onChange);
+ const reqInputs = [
+    tr.querySelector('[data-user-phase="1"]'),
+    tr.querySelector('[data-user-sub="1"]'),
+    tr.querySelector('[data-user-work="1"]')
+  ];
+  reqInputs.forEach((inp) => {
+    if(inp){
+      inp.addEventListener("input", function(){
+        setRequiredState(inp, !!String(inp.value || "").trim());
+      });
+    }
+  });
 
   // Delete
   const delBtn = tr.querySelector('[data-del-row="1"]');
