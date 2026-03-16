@@ -1019,8 +1019,12 @@
                   <h1>Core Upgrade Effort Estimator</h1>
 <div style="display:flex; gap:10px; margin:10px 0 20px 0; flex-wrap:wrap;">
   <button class="calculate-btn csv-btn" type="button" id="importJsonBtnStep1">Import JSON</button>
+  <button class="calculate-btn csv-btn" type="button" id="importCoreCatalogBtn">Load versions catalog</button>
+  <button class="calculate-btn csv-btn" type="button" id="resetCoreCatalogBtn">Reset catalog</button>
 </div>
 <input type="file" id="importJsonFile" accept=".json,application/json" style="display:none;" />
+<input type="file" id="importCoreCatalogFile" accept=".json,application/json" style="display:none;" />
+<div class="muted" id="coreCatalogStatus" style="margin-bottom:8px;">Catalog source: built-in defaults.</div>
                   <p class="intro-text">
                      Select upgrade scope. Optionally upload ReleasedFileChanges.txt to auto-calculate key totals.
                   </p>
@@ -1703,7 +1707,7 @@ window.el = window.el || function(id){ return document.getElementById(id); };
                  }
                }
 
-const CORE_TECH_STACK = {
+let CORE_TECH_STACK = {
   core16_0: {
     java: "Java 8 (Oracle JDK / OpenJDK)",
     database: "Oracle 12.2 / SQL Server 2017 / DB2 10.5",
@@ -1863,7 +1867,7 @@ const CORE_TECH_STACK = {
   }
 };
 
- window.CORE_VERSIONS = [
+window.CORE_VERSIONS = [
   { key: "core16_0", label: "core 16.0" },
   { key: "core17_0", label: "core 17.0" },
   { key: "core18_0", label: "core 18.0" },
@@ -1872,6 +1876,104 @@ const CORE_TECH_STACK = {
   { key: "core20_2", label: "core 20.2" },
   { key: "core21_3", label: "core 21.3" }
 ];
+
+const CORE_CATALOG_LOCAL_STORAGE_KEY = "coreUpgradeCatalog_v1";
+
+function setCoreCatalogStatus(message){
+  const statusEl = document.getElementById("coreCatalogStatus");
+  if(statusEl) statusEl.textContent = message;
+}
+
+function validateCoreCatalogShape(catalog){
+  if(!catalog || typeof catalog !== "object") throw new Error("Catalog must be a JSON object.");
+  if(!Array.isArray(catalog.versions) || !catalog.versions.length) throw new Error("Catalog must include a non-empty versions array.");
+  if(!catalog.techStack || typeof catalog.techStack !== "object") throw new Error("Catalog must include a techStack object.");
+
+  const seen = new Set();
+  catalog.versions.forEach((v, idx) => {
+    if(!v || typeof v !== "object") throw new Error(`versions[${idx}] must be an object.`);
+    if(!v.key || typeof v.key !== "string") throw new Error(`versions[${idx}].key is required.`);
+    if(!v.label || typeof v.label !== "string") throw new Error(`versions[${idx}].label is required.`);
+    if(seen.has(v.key)) throw new Error(`Duplicate version key: ${v.key}`);
+    seen.add(v.key);
+    if(!catalog.techStack[v.key]) throw new Error(`techStack is missing key ${v.key}`);
+  });
+}
+
+function applyCoreCatalog(catalog, sourceLabel, persist){
+  validateCoreCatalogShape(catalog);
+  window.CORE_VERSIONS = catalog.versions.map(v => ({ key: v.key, label: v.label }));
+  CORE_TECH_STACK = catalog.techStack;
+
+  if(typeof rebuildCoreSelectors === "function") rebuildCoreSelectors();
+  if(typeof updateToOptionsFromFromSelection === "function") updateToOptionsFromFromSelection();
+  if(typeof filterCoreFromOptions === "function") filterCoreFromOptions();
+  if(typeof updateUpgradeScopeFromRange === "function") updateUpgradeScopeFromRange();
+  if(typeof updateTechDashboard === "function") updateTechDashboard();
+
+  if(persist){
+    localStorage.setItem(CORE_CATALOG_LOCAL_STORAGE_KEY, JSON.stringify(catalog));
+  }
+
+  setCoreCatalogStatus(`Catalog source: ${sourceLabel}`);
+}
+
+function loadSavedCoreCatalog(){
+  try{
+    const raw = localStorage.getItem(CORE_CATALOG_LOCAL_STORAGE_KEY);
+    if(!raw) return;
+    const parsed = JSON.parse(raw);
+    applyCoreCatalog(parsed, "custom JSON (saved locally)", false);
+  }catch(err){
+    console.warn("Failed to load saved core catalog", err);
+  }
+}
+
+function wireCoreCatalogImport(){
+  const importBtn = document.getElementById("importCoreCatalogBtn");
+  const resetBtn = document.getElementById("resetCoreCatalogBtn");
+  const fileInput = document.getElementById("importCoreCatalogFile");
+
+  const defaultCatalog = {
+    versions: (window.CORE_VERSIONS || []).map(v => ({ key: v.key, label: v.label })),
+    techStack: CORE_TECH_STACK
+  };
+
+  if(importBtn && !importBtn.__coreCatalogWired){
+    importBtn.__coreCatalogWired = true;
+    importBtn.addEventListener("click", function(){ if(fileInput) fileInput.click(); });
+  }
+
+  if(fileInput && !fileInput.__coreCatalogWired){
+    fileInput.__coreCatalogWired = true;
+    fileInput.addEventListener("change", function(e){
+      const file = e && e.target && e.target.files ? e.target.files[0] : null;
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = function(evt){
+        try{
+          const text = String(evt && evt.target ? (evt.target.result || "") : "");
+          const payload = JSON.parse(text);
+          applyCoreCatalog(payload, `custom JSON (${file.name})`, true);
+          alert("Versions catalog loaded successfully.");
+        }catch(err){
+          alert("Catalog import failed: " + (err && err.message ? err.message : String(err)));
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = "";
+    });
+  }
+
+  if(resetBtn && !resetBtn.__coreCatalogWired){
+    resetBtn.__coreCatalogWired = true;
+    resetBtn.addEventListener("click", function(){
+      localStorage.removeItem(CORE_CATALOG_LOCAL_STORAGE_KEY);
+      applyCoreCatalog(defaultCatalog, "built-in defaults", false);
+      alert("Catalog reset to built-in defaults.");
+    });
+  }
+}
 
 function setSelectOptions(selectEl, options, keepValue) {
   if (!selectEl) return;
@@ -3980,6 +4082,8 @@ document.addEventListener("DOMContentLoaded", function(){
                   wireAutoDetailsToggles();
                   wireStep1Navigation();
 				  wireJsonImportExport();
+                  wireCoreCatalogImport();
+                  loadSavedCoreCatalog();
 				                    wireBufferInputs();
                });
 
