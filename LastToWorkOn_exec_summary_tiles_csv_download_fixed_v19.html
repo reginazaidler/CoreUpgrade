@@ -223,6 +223,29 @@
   gap:12px;
   margin-top:12px;
 }
+         .step2-tabs{
+         display:flex;
+         gap:8px;
+         flex-wrap:wrap;
+         margin-bottom:10px;
+         }
+         .step2-tab-btn{
+         border:1px solid var(--border);
+         background:#fff;
+         color:var(--text);
+         padding:8px 12px;
+         border-radius:999px;
+         font-size:12px;
+         font-weight:600;
+         cursor:pointer;
+         }
+         .step2-tab-btn.active{
+         background:var(--brand-navy-2);
+         color:#fff;
+         border-color:var(--brand-navy-2);
+         }
+         .step2-panel{ display:none; }
+         .step2-panel.active{ display:block; }
          .section-card{
          background:#fff;
          border:1px solid var(--border);
@@ -952,9 +975,12 @@
                      <span class="upgrade-type-badge" id="upgradeTypeBadge"></span>
                   </div>
                   <div class="param-sections">
+                     <div class="step2-tabs" role="tablist" aria-label="Project parameter sections">
+                        <button type="button" class="step2-tab-btn active" data-step2-tab="tabCalculated" role="tab" aria-selected="true">Calculated inputs</button>
+                        <button type="button" class="step2-tab-btn" data-step2-tab="tabManual" role="tab" aria-selected="false">Manual inputs</button>
+                     </div>
 
-                     
-                     
+                     <div id="tabCalculated" class="step2-panel active" role="tabpanel">
                      <div class="section-card" id="upgradeScopeCard">
                        <div class="section-title">
                          <h4>Upgrade Scope Summary</h4>
@@ -1235,7 +1261,10 @@
   </button>
 </div>
 
-<!-- Risk and Buffer -->
+                     </div>
+                     </div>
+
+                     <div id="tabManual" class="step2-panel" role="tabpanel">
                      <div class="section-card" id="riskBufferCard">
                         <div class="section-title">
                            <h4>Risk and Buffer</h4>
@@ -1255,7 +1284,6 @@
                            </tr>
                         </table>
 </div>
-
                      </div>
 				  </div>
                   
@@ -3369,6 +3397,33 @@ function wireCoreVersionDependency(){
 })();
 
 
+
+function wireStep2Tabs(){
+  const tabButtons = Array.from(document.querySelectorAll(".step2-tab-btn[data-step2-tab]"));
+  if(!tabButtons.length) return;
+
+  const activateTab = (tabId) => {
+    tabButtons.forEach(btn => {
+      const isActive = btn.getAttribute("data-step2-tab") === tabId;
+      btn.classList.toggle("active", isActive);
+      btn.setAttribute("aria-selected", isActive ? "true" : "false");
+    });
+
+    const panels = Array.from(document.querySelectorAll(".step2-panel"));
+    panels.forEach(panel => {
+      panel.classList.toggle("active", panel.id === tabId);
+    });
+  };
+
+  tabButtons.forEach(btn => {
+    btn.addEventListener("click", function(){
+      activateTab(btn.getAttribute("data-step2-tab"));
+    });
+  });
+
+  activateTab("tabCalculated");
+}
+
 function wireAutoDetailsToggles() {
   // no-op: auto details toggles were removed, keep for backward compatibility
 }
@@ -3384,6 +3439,7 @@ document.addEventListener("DOMContentLoaded", function(){
                   wireManualTasks();
                   wireAutoDetailsToggles();
                   wireStep1Navigation();
+                  wireStep2Tabs();
                });
 
 
