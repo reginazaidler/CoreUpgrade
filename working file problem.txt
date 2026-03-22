@@ -1356,13 +1356,13 @@
       </select>
     </div>
 	
-	  <div style="min-width:230px;">
+	 <div style="min-width:230px;">
       <label for="ganttCountries">Holiday calendars (optional)</label>
       <select class="input-sm" id="ganttCountries" multiple size="4" style="height:auto;">
-        <option value="IN">India (IN)</option>
-        <option value="PL">Poland (PL)</option>
-        <option value="DE">Germany (DE)</option>
-        <option value="IL">Israel (IL)</option>
+        <option value="IN">India</option>
+        <option value="PL">Poland</option>
+        <option value="DE">Germany</option>
+        <option value="IL">Israel</option>
       </select>
       <div class="muted">Use Ctrl/Cmd + click for multi-select. Public holidays + local weekends are skipped.</div>
     </div>
@@ -1380,8 +1380,8 @@
   <button class="calculate-btn csv-btn" type="button" id="exportJsonBtnResults">Export to JSON</button>
   <button class="calculate-btn csv-btn" type="button" id="importJsonBtnResults">Import JSON</button>
   <button id="generateGanttBtn" type="button" class="calculate-btn csv-btn">Generate Gantt</button>
-  <button id="downloadManagerExcelBtn" type="button" class="calculate-btn csv-btn" onclick="downloadManagerExportCsv()">Export Full Report (Excel CSV)</button>
-  <button id="shareManagerEmailBtn" type="button" class="calculate-btn csv-btn" onclick="openManagerEmailDraft()">Draft Manager Email</button>
+    <button id="downloadManagerExcelBtn" type="button" class="calculate-btn csv-btn" onclick="downloadManagerExportCsv()">Export Full Report (Excel CSV)</button>
+	  <button id="shareManagerEmailBtn" type="button" class="calculate-btn csv-btn" onclick="openManagerEmailDraft()">Draft Manager Email</button>
   <button id="downloadJiraCsvBtn" type="button" class="calculate-btn csv-btn">Download CSV for Jira</button>
   <button id="jiraHelpBtn" type="button" class="calculate-btn csv-btn">Jira Import Instructions</button>
 </div>
@@ -1892,9 +1892,6 @@ function csvEscape(value) {
   return needsQuotes ? '"' + escaped + '"' : escaped;
 }
 
-
-
-
 function getDetailedTableRowsForManagerExport() {
   const tbody = document.querySelector("#detailedTable tbody");
   if (!tbody) throw new Error("Detailed breakdown table not found.");
@@ -1941,160 +1938,46 @@ function getDetailedTableRowsForManagerExport() {
   return rows;
 }
 
-function xmlEscape(value) {
-  const s = value === null || value === undefined ? "" : String(value);
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
-}
-
-function buildExcelWorksheetXml(sheetName, rows) {
-  const safeRows = Array.isArray(rows) ? rows : [];
-  const name = String(sheetName || "Sheet").slice(0, 31);
-  const rowXml = safeRows.map((r, ri) => {
-    const cells = (Array.isArray(r) ? r : [r]).map((cell) => {
-      const style = ri === 0 ? ' ss:StyleID="Header"' : '';
-      return `<Cell${style}><Data ss:Type="String">${xmlEscape(cell)}</Data></Cell>`;
-    }).join("");
-    return `<Row>${cells}</Row>`;
-  }).join("");
-
-  return `<Worksheet ss:Name="${xmlEscape(name)}"><Table>${rowXml}</Table></Worksheet>`;
-}
-
-function getUpgradeScopeRowsForExport() {
-  const body = document.getElementById("upgradeScopeTbody");
-  const rows = [["Item", "Value"]];
-  if (!body) return rows;
-
-  Array.from(body.querySelectorAll("tr")).forEach((tr) => {
-    const tds = tr.querySelectorAll("td");
-    rows.push([
-      (tds[0] && tds[0].innerText || "").trim(),
-      (tds[1] && tds[1].innerText || "").trim()
-    ]);
-  });
-  return rows;
-}
-
-function getTechStackDeltaRowsForExport() {
-  const body = document.getElementById("techStackFullTbody");
-  const rows = [["Technology", "From", "To", "Affects Dev", "Affects DevOps"]];
-  if (!body) return rows;
-
-  Array.from(body.querySelectorAll("tr")).forEach((tr) => {
-    const tds = tr.querySelectorAll("td");
-    rows.push([
-      (tds[0] && tds[0].innerText || "").trim(),
-      (tds[1] && tds[1].innerText || "").trim(),
-      (tds[2] && tds[2].innerText || "").trim(),
-      tds[3] && tds[3].querySelector('input[type="checkbox"]') && tds[3].querySelector('input[type="checkbox"]').checked ? "Yes" : "No",
-      tds[4] && tds[4].querySelector('input[type="checkbox"]') && tds[4].querySelector('input[type="checkbox"]').checked ? "Yes" : "No"
-    ]);
-  });
-  return rows;
-}
-
-function getAutoCalculatedRowsForExport() {
-  const metrics = [
-    ["xmlFiles", "XML files (count)"],
-    ["jspFiles", "JSP files (count)"],
-    ["changedMethods", "Changed methods (total)"],
-    ["changedQueries", "Changed queries (total)"],
-    ["sessionBeans", "SessionBean occurrences (count)"]
-  ];
-
-  const rows = [["Metric", "Value", "Details count", "Detail #", "Detail line"]];
-  metrics.forEach(([id, label]) => {
-    const input = document.getElementById(id);
-    const value = input ? String(input.value || "").trim() : "";
-    const details = window.autoDetails && Array.isArray(window.autoDetails[id])
-      ? window.autoDetails[id]
-      : [];
-
-    if (!details.length) {
-      rows.push([label, value, "0", "", ""]);
-      return;
-    }
-
-    details.forEach((line, idx) => {
-      rows.push([
-        idx === 0 ? label : "",
-        idx === 0 ? value : "",
-        idx === 0 ? String(details.length) : "",
-        String(idx + 1),
-        String(line || "").trim()
-      ]);
-    });
-  });
-  return rows;
-}
-
-function getPhaseSummaryRowsForExport() {
-  const body = document.getElementById("phaseSummary");
-  const rows = [["Phase", "Effort (MD)"]];
-  if (!body) return rows;
-
-  Array.from(body.querySelectorAll("tr")).forEach((tr) => {
-    const tds = tr.querySelectorAll("td");
-    if (tds.length < 2) return;
-    rows.push([
-      (tds[0].innerText || "").trim(),
-      (tds[1].innerText || "").trim()
-    ]);
-  });
-  return rows;
-}
-
-function getDetailedBreakdownRowsForExport() {
-  const detailedRows = getDetailedTableRowsForManagerExport();
-  const rows = [["Upgrade type", "Phase", "Sub phase", "Work item", "Qty", "Rate", "Base MD", "Override", "Override MD", "Notes", "Total MD"]];
-  const upgradeType = (state.lastCalc && state.lastCalc.upgradeTypeLabel) || "";
-
-  detailedRows.forEach((r) => {
-    rows.push([
-      upgradeType,
-      r.phase,
-      r.subPhase,
-      r.workItem,
-      r.qty,
-      r.rate,
-      r.baseMd,
-      r.overrideEnabled,
-      r.overrideMd,
-      r.notes,
-      r.totalMd
-    ]);
-  });
-  return rows;
-}
-
 function downloadManagerExportCsv() {
   try {
-    const executiveSummaryText = (document.getElementById("executiveSummary")?.innerText || "").trim();
-    const workbookXml = `<?xml version="1.0"?>
-` +
-      `<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" ` +
-      `xmlns:o="urn:schemas-microsoft-com:office:office" ` +
-      `xmlns:x="urn:schemas-microsoft-com:office:excel" ` +
-      `xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet" ` +
-      `xmlns:html="http://www.w3.org/TR/REC-html40">` +
-      `<Styles><Style ss:ID="Header"><Font ss:Bold="1"/></Style></Styles>` +
-      buildExcelWorksheetXml("Upgrade Scope Summary", getUpgradeScopeRowsForExport()) +
-      buildExcelWorksheetXml("Technology Stack Delta", getTechStackDeltaRowsForExport()) +
-      buildExcelWorksheetXml("Auto-calculated from file", getAutoCalculatedRowsForExport()) +
-      buildExcelWorksheetXml("Phase Summary", getPhaseSummaryRowsForExport()) +
-      buildExcelWorksheetXml("Detailed Breakdown", getDetailedBreakdownRowsForExport()) +
-      buildExcelWorksheetXml("Executive Summary", [["Executive summary"], [executiveSummaryText || "No executive summary yet"]]) +
-      `</Workbook>`;
+    const rows = getDetailedTableRowsForManagerExport();
+    const header = [
+      "Upgrade type",
+      "Phase",
+      "Sub phase",
+      "Work item",
+      "Qty",
+      "Rate",
+      "Base MD",
+      "Override",
+      "Override MD",
+      "Notes",
+      "Total MD"
+    ];
 
-    const blob = new Blob([workbookXml], { type: "application/vnd.ms-excel;charset=utf-8;" });
+    const upgradeType = (state.lastCalc && state.lastCalc.upgradeTypeLabel) || "";
+    const csvLines = [header.map(csvEscape).join(",")];
+
+    rows.forEach((row) => {
+      csvLines.push([
+        excelSafeText(upgradeType),
+        excelSafeText(row.phase),
+        excelSafeText(row.subPhase),
+        excelSafeText(row.workItem),
+        excelSafeText(row.qty),
+        excelSafeText(row.rate),
+        excelSafeText(row.baseMd),
+        excelSafeText(row.overrideEnabled),
+        excelSafeText(row.overrideMd),
+        excelSafeText(row.notes),
+        excelSafeText(row.totalMd)
+      ].map(csvEscape).join(","));
+    });
+
+    const blob = new Blob([csvLines.join("\n")], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `Manager_Report_${new Date().toISOString().slice(0, 10)}.xls`;
+    link.download = `Manager_Report_${new Date().toISOString().slice(0, 10)}.csv`;
 
     link.style.display = "none";
     document.body.appendChild(link);
@@ -2110,7 +1993,7 @@ function downloadManagerExportCsv() {
   }
 }
 
-async function openManagerEmailDraft() {
+function openManagerEmailDraft() {
   try {
     const rows = getDetailedTableRowsForManagerExport();
     const upgradeType = (state.lastCalc && state.lastCalc.upgradeTypeLabel) || "";
@@ -2126,7 +2009,7 @@ async function openManagerEmailDraft() {
       .map((r) => `- ${r.phase || "N/A"} | ${r.workItem} | ${r.totalMd || "0"} MD`)
       .join("\n");
 
-    const subjectRaw = "Core Upgrade effort summary";
+    const subject = encodeURIComponent("Core Upgrade effort summary");
     const body = [
       "Hi,",
       "",
@@ -2143,33 +2026,13 @@ async function openManagerEmailDraft() {
       ""
     ].join("\n");
 
-    const draftText = `Subject: ${subjectRaw}\n\n${body}`;
-    let copied = false;
-
-    try {
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(draftText);
-        copied = true;
-      }
-    } catch (_) {
-      copied = false;
-    }
-
-    const shouldOpenMailClient = window.confirm(
-      (copied
-        ? "Email draft copied to clipboard. Click OK to open your mail app, or Cancel to paste manually."
-        : "Email draft prepared. Click OK to open your mail app, or Cancel to stay here.")
-    );
-
-    if (shouldOpenMailClient) {
-      const subject = encodeURIComponent(subjectRaw);
-      window.location.href = `mailto:?subject=${subject}&body=${encodeURIComponent(body)}`;
-    }
+    window.location.href = `mailto:?subject=${subject}&body=${encodeURIComponent(body)}`;
   } catch (err) {
     console.error(err);
     alert("Could not generate manager email draft: " + (err && err.message ? err.message : String(err)));
   }
 }
+
 
 
 
@@ -4062,93 +3925,7 @@ document.addEventListener("DOMContentLoaded", function(){
   }
 
 
-  <p class="section-hint">
-    This is a basic, sequential timeline generated from the detailed breakdown totals. It is meant for illustration, not a real project plan.
-  </p>
-
-  <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; margin-bottom:10px;">
-    <div style="min-width:170px;">
-      <label for="ganttStartDate">Start date</label>
-      <input class="input-sm" type="date" id="ganttStartDate" />
-    </div>
-
-    <div style="min-width:170px;">
-      <label for="ganttMdPerWeek">Capacity (MD per week)</label>
-      <input class="input-sm" type="number" id="ganttMdPerWeek" min="1" step="1" value="25" />
-      <div class="muted">Used to convert MD to calendar duration (Mon-Fri).</div>
-    </div>
-
-    <div style="min-width:170px;">
-      <label for="ganttGroupBy">Group by</label>
-      <select class="input-sm" id="ganttGroupBy">
-        <option value="phase" selected>Phase</option>
-        <option value="subPhase">Sub phase</option>
-      </select>
-    </div>
-
-    <div style="min-width:230px;">
-      <label for="ganttCountries">Holiday calendars (optional)</label>
-      <select class="input-sm" id="ganttCountries" multiple size="4" style="height:auto;">
-        <option value="IN">India (IN)</option>
-        <option value="PL">Poland (PL)</option>
-        <option value="DE">Germany (DE)</option>
-        <option value="IL">Israel (IL)</option>
-      </select>
-      <div class="muted">Use Ctrl/Cmd + click for multi-select. Public holidays + local weekends are skipped.</div>
-    </div>
-
-    <div style="margin-left:auto; display:flex; gap:10px; flex-wrap:wrap;">
-      <button id="renderGanttBtn" type="button" class="calculate-btn csv-btn">Render Gantt</button>
-      <button id="exportGanttPngBtn" type="button" class="calculate-btn csv-btn">Export Gantt as PNG</button>
-    </div>
-  </div>
-
-  <div id="ganttSvgWrap" style="border:1px solid var(--border); border-radius:8px; background:#fff; padding:10px; overflow:auto;"></div>
-</div>
-                     
-<div style="text-align:center; display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
-  <button class="calculate-btn csv-btn" type="button" id="exportJsonBtnResults">Export to JSON</button>
-  <button class="calculate-btn csv-btn" type="button" id="importJsonBtnResults">Import JSON</button>
-  <button id="generateGanttBtn" type="button" class="calculate-btn csv-btn">Generate Gantt</button>
-  <button id="downloadJiraCsvBtn" type="button" class="calculate-btn csv-btn">Download CSV for Jira</button>
-  <button id="jiraHelpBtn" type="button" class="calculate-btn csv-btn">Jira Import Instructions</button>
-</div>
-
-                  </div>
-               </div>
-            </div>
-            <script>
-window.el = window.el || function(id){ return document.getElementById(id); };
-
-
-               const typeNames = {
-@@ -3665,134 +3676,256 @@ document.addEventListener("DOMContentLoaded", function(){
-    btn.disabled = !ok;
-    btn.title = ok ? '' : 'Please recalculate before exporting CSV';
-  }
-
-  // Wrap calculateEffort to refresh button state
-  const __origCalcEffort2 = window.calculateEffort;
-  if(typeof __origCalcEffort2 === 'function'){
-    window.calculateEffort = function(){
-      const r = __origCalcEffort2.apply(this, arguments);
-      try { updateCsvButtonEnabled(); } catch(e) {}
-      return r;
-    };
-  }
-  
-  /* --- Gantt generation wiring --- */
-(function(){
-  function q(sel, root){ return (root || document).querySelector(sel); }
-  function qa(sel, root){ return Array.from((root || document).querySelectorAll(sel)); }
-
-  function parseDate(value){
-    if(!value) return null;
-    const d = new Date(value + "T00:00:00");
-    return Number.isFinite(d.getTime()) ? d : null;
-  }
-
-  const DAY_MS = 24 * 60 * 60 * 1000;
+ const DAY_MS = 24 * 60 * 60 * 1000;
   const COUNTRY_WEEKENDS = {
     IN: new Set([0, 6]),
     PL: new Set([0, 6]),
@@ -4197,26 +3974,7 @@ window.el = window.el || function(id){ return document.getElementById(id); };
     return merged;
   }
 
-  function toLocalYmd(d){
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-  }
-
-  function isoDate(d){ return toLocalYmd(d); }
-
-  function formatShortAxisDate(d){
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    return `${day}/${month}`;
-  }
-
-  function getAxisStepDays(totalDays){
-    if(totalDays <= 21) return 1;
-    if(totalDays <= 60) return 3;
-    return 7;
-  }
+  function isoDate(d){ return d.toISOString().slice(0, 10); }
 
   function isNonWorkingDay(d, weekendSet, holidaySet){
     return weekendSet.has(d.getDay()) || holidaySet.has(isoDate(d));
@@ -4292,7 +4050,7 @@ window.el = window.el || function(id){ return document.getElementById(id); };
       return;
     }
 
-const workingDaysPerWeek = 5;
+  const workingDaysPerWeek = 5;
     const mdPerWorkingDay = mdPerWeek / workingDaysPerWeek;
     const weekendSet = buildWeekendSet(countryCodes);
 
@@ -4340,23 +4098,12 @@ const workingDaysPerWeek = 5;
     let svg = `<svg id="ganttSvg" xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`;
     svg += `<rect x="0" y="0" width="${width}" height="${height}" fill="#fff"/>`;
 
-    const axisStepDays = getAxisStepDays(totalDays);
-    const axisShortMode = axisStepDays < 7;
-
-    const axisStepDays = (typeof getAxisStepDays === 'function')
-      ? getAxisStepDays(totalDays)
-      : (totalDays <= 21 ? 1 : (totalDays <= 60 ? 3 : 7));
-    const axisShortMode = axisStepDays < 7;
-
-    for(let d = 0; d <= totalDays; d += axisStepDays){
+    for(let d = 0; d <= totalDays; d += 7){
       const x = leftPad + d * dayWidth;
       svg += `<line x1="${x}" y1="${topPad - 10}" x2="${x}" y2="${height - 10}" stroke="#e4e7ec"/>`;
       const date = new Date(startDate.getTime() + d * 86400000);
-      const label = axisShortMode
-        ? (typeof formatShortAxisDate === 'function' ? formatShortAxisDate(date) : toLocalYmd(date))
-        : toLocalYmd(date);
-      svg += `<text x="${x + 2}" y="15" font-size="10" fill="#667085">${label}</text>`;
-	  }
+      svg += `<text x="${x + 2}" y="15" font-size="10" fill="#667085">${date.toISOString().slice(0,10)}</text>`;
+    }
 
     bars.forEach((b, i) => {
       const y = topPad + i * rowH;
