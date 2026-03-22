@@ -1345,21 +1345,36 @@
       <div class="muted">Used to convert MD to calendar duration (Mon-Fri).</div>
     </div>
 
-    <div style="min-width:170px;">
-      <label for="ganttGroupBy">Group by</label>
-      <select class="input-sm" id="ganttGroupBy">
-        <option value="phase" selected>Phase</option>
-        <option value="subPhase">Sub phase</option>
-      </select>
-    </div>
+	    <div style="min-width:170px;">
+	      <label for="ganttGroupBy">Group by</label>
+	      <select class="input-sm" id="ganttGroupBy">
+	        <option value="phase" selected>Phase</option>
+	        <option value="subPhase">Sub phase</option>
+	      </select>
+	    </div>
+
+	    <div style="min-width:220px;">
+	      <label for="devDependencyMode">Development dependencies</label>
+	      <select class="input-sm" id="devDependencyMode">
+	        <option value="smart" selected>Smart defaults</option>
+	        <option value="sequential">Strict sequential</option>
+	      </select>
+	      <div class="muted">Start from development tasks only and auto-sequence them.</div>
+	    </div>
+
+	    <div style="display:flex; align-items:center; gap:8px; min-width:190px;">
+	      <input class="checkbox-sm" type="checkbox" id="includeQaHandoff" checked />
+	      <label for="includeQaHandoff" style="margin:0;">Add QA handoff row</label>
+	    </div>
 
     <div style="margin-left:auto; display:flex; gap:10px; flex-wrap:wrap;">
       <button id="renderGanttBtn" type="button" class="calculate-btn csv-btn">Render Gantt</button>
       <button id="exportGanttPngBtn" type="button" class="calculate-btn csv-btn">Export Gantt as PNG</button>
     </div>
-  </div>
+	  </div>
 
-  <div id="ganttSvgWrap" style="border:1px solid var(--border); border-radius:8px; background:#fff; padding:10px; overflow:auto;"></div>
+	  <div id="ganttSvgWrap" style="border:1px solid var(--border); border-radius:8px; background:#fff; padding:10px; overflow:auto;"></div>
+	  <div id="devPlanWrap" style="display:none; margin-top:10px; border:1px solid var(--border); border-radius:8px; background:#fff; padding:10px; overflow:auto;"></div>
 </div>
                      
 <div style="text-align:center; display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
@@ -4306,5 +4321,225 @@ document.addEventListener("DOMContentLoaded", function(){
 
 </script>
 
+<script>
+(function(){
+  function toNum(v){ const n = Number(v); return Number.isFinite(n) ? n : 0; }
+  function parseISODate(s){
+    if(!s) return null;
+    const d = new Date(String(s) + "T00:00:00");
+    return Number.isFinite(d.getTime()) ? d : null;
+  }
+  function formatISODate(d){
+    if(!(d instanceof Date) || !Number.isFinite(d.getTime())) return "";
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+  function addWorkDays(startDate, days){
+    const d = new Date(startDate.getTime());
+    let remaining = Math.max(0, Math.ceil(days));
+    while(remaining > 0){
+      d.setDate(d.getDate() + 1);
+      const wd = d.getDay();
+      if(wd !== 0 && wd !== 6) remaining -= 1;
+    }
+    return d;
+  }
+
+  function normalizeKey(text){
+    return String(text || "").trim().toLowerCase().replace(/\s+/g, " ");
+  }
+
+  function collectDevelopmentRows(){
+    const tbody = document.querySelector("#detailedTable tbody");
+    if(!tbody) return [];
+    const rows = Array.from(tbody.querySelectorAll("tr"));
+    const out = [];
+    rows.forEach((tr, idx) => {
+      const tds = Array.from(tr.querySelectorAll("td"));
+      if(tds.length < 10) return;
+      const phase = (tds[0]?.textContent || "").trim();
+      const subPhase = (tds[1]?.textContent || "").trim();
+      const workItem = (tds[2]?.textContent || "").trim();
+      if(!phase || !workItem) return;
+      if(phase !== "Build & System test" && phase !== "Devops" && phase !== "DevOps") return;
+      const totalText = (tds[9]?.textContent || tds[5]?.textContent || "").trim();
+      const md = parseFloat(totalText);
+      if(!Number.isFinite(md) || md <= 0) return;
+      if(/total dev effort|global buffer|total \(incl\. buffer\)/i.test((tr.textContent || ""))) return;
+
+      out.push({
+        id: `dev_${idx+1}`,
+        phase,
+        subPhase,
+        workItem,
+        md,
+        dependsOn: []
+      });
+    });
+    return out;
+  }
+
+  function applyDependencyMode(tasks, mode){
+    if(!Array.isArray(tasks) || !tasks.length) return tasks || [];
+    if(mode === "sequential"){
+      return tasks.map((t, i) => ({ ...t, dependsOn: i > 0 ? [tasks[i-1].id] : [] }));
+    }
+
+    const groupOrder = ["technical upgrade", "coprs", "interfaces", "code", "stabiliz", "additional", "solution", "devops"];
+    const rankByText = (t) => {
+      const txt = `${t.subPhase} ${t.workItem} ${t.phase}`.toLowerCase();
+      const idx = groupOrder.findIndex(k => txt.includes(k));
+      return idx >= 0 ? idx : 999;
+    };
+
+    const sorted = tasks.slice().sort((a,b) => {
+      const ra = rankByText(a);
+      const rb = rankByText(b);
+      if(ra !== rb) return ra - rb;
+      return normalizeKey(a.workItem).localeCompare(normalizeKey(b.workItem));
+    });
+
+    const planned = sorted.map((t) => ({ ...t, dependsOn: [] }));
+    for(let i=1;i<planned.length;i++){
+      const prev = planned[i-1];
+      const curr = planned[i];
+      if(normalizeKey(curr.subPhase) !== normalizeKey(prev.subPhase) || rankByText(curr) > rankByText(prev)){
+        curr.dependsOn = [prev.id];
+      }
+    }
+    return planned;
+  }
+
+  function scheduleTasks(tasks, startDate, mdPerWeek){
+    const mdPerDay = Math.max(0.1, toNum(mdPerWeek) / 5);
+    const byId = new Map(tasks.map(t => [t.id, t]));
+    const finishById = new Map();
+    const startById = new Map();
+    const visiting = new Set();
+
+    function planTask(t){
+      if(finishById.has(t.id)) return;
+      if(visiting.has(t.id)) throw new Error("Dependency cycle detected");
+      visiting.add(t.id);
+
+      let earliest = new Date(startDate.getTime());
+      (t.dependsOn || []).forEach((depId) => {
+        const dep = byId.get(depId);
+        if(!dep) return;
+        planTask(dep);
+        const depFinish = finishById.get(depId);
+        if(depFinish && depFinish > earliest) earliest = new Date(depFinish.getTime());
+      });
+
+      const durationDays = Math.max(1, Math.ceil(t.md / mdPerDay));
+      const start = new Date(earliest.getTime());
+      const finish = addWorkDays(start, durationDays);
+      startById.set(t.id, start);
+      finishById.set(t.id, finish);
+      visiting.delete(t.id);
+    }
+
+    tasks.forEach(planTask);
+
+    return tasks.map((t) => ({
+      ...t,
+      start: formatISODate(startById.get(t.id)),
+      finish: formatISODate(finishById.get(t.id)),
+      dependsOnLabel: (t.dependsOn || []).map(id => byId.get(id)?.workItem || id).join(", ")
+    }));
+  }
+
+  function renderDevPlanTable(planRows, qaRow){
+    const wrap = document.getElementById("devPlanWrap");
+    if(!wrap) return;
+    wrap.style.display = "block";
+
+    const all = qaRow ? planRows.concat([qaRow]) : planRows;
+    if(!all.length){
+      wrap.innerHTML = "<div class='muted'>No development rows found yet. Run Calculate first.</div>";
+      return;
+    }
+
+    const rowsHtml = all.map(r => {
+      return `<tr>
+        <td>${r.phase || ""}</td>
+        <td>${r.subPhase || ""}</td>
+        <td>${r.workItem || ""}</td>
+        <td>${(r.md != null ? Number(r.md).toFixed(1) : "-")}</td>
+        <td>${r.dependsOnLabel || "-"}</td>
+        <td>${r.start || ""}</td>
+        <td>${r.finish || ""}</td>
+      </tr>`;
+    }).join("");
+
+    wrap.innerHTML = `
+      <div style="font-weight:600; margin-bottom:8px;">Development dependency plan</div>
+      <table class="result-table" style="width:100%;">
+        <thead>
+          <tr>
+            <th>Phase</th>
+            <th>Sub phase</th>
+            <th>Work item</th>
+            <th>MD</th>
+            <th>Depends on</th>
+            <th>Start</th>
+            <th>Finish</th>
+          </tr>
+        </thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    `;
+  }
+
+  function buildDevelopmentDependencyPlan(){
+    const startDate = parseISODate(document.getElementById("ganttStartDate")?.value) || new Date();
+    const mdPerWeek = toNum(document.getElementById("ganttMdPerWeek")?.value) || 25;
+    const mode = document.getElementById("devDependencyMode")?.value || "smart";
+    const includeQaHandoff = !!document.getElementById("includeQaHandoff")?.checked;
+
+    const devTasks = collectDevelopmentRows();
+    if(!devTasks.length){
+      renderDevPlanTable([], null);
+      return;
+    }
+
+    const withDeps = applyDependencyMode(devTasks, mode);
+    const planRows = scheduleTasks(withDeps, startDate, mdPerWeek);
+
+    let qaRow = null;
+    if(includeQaHandoff && planRows.length){
+      const lastFinish = planRows.reduce((acc, r) => (r.finish > acc ? r.finish : acc), planRows[0].finish);
+      qaRow = {
+        phase: "Customer testing",
+        subPhase: "Handoff",
+        workItem: "QA handoff (version ready for QA)",
+        md: 0,
+        dependsOnLabel: "Last development task",
+        start: lastFinish,
+        finish: lastFinish
+      };
+    }
+
+    renderDevPlanTable(planRows, qaRow);
+  }
+
+  document.addEventListener("DOMContentLoaded", function(){
+    const renderBtn = document.getElementById("renderGanttBtn");
+    const genBtn = document.getElementById("generateGanttBtn");
+    if(renderBtn) renderBtn.addEventListener("click", buildDevelopmentDependencyPlan);
+    if(genBtn) genBtn.addEventListener("click", function(){
+      const card = document.getElementById("ganttCard");
+      if(card) card.style.display = "block";
+      setTimeout(buildDevelopmentDependencyPlan, 0);
+    });
+  });
+
+  window.buildDevelopmentDependencyPlan = buildDevelopmentDependencyPlan;
+})();
+</script>
+
 </body>
 </html>
+
