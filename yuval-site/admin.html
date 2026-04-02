@@ -1,0 +1,9 @@
+<!doctype html><html lang="he" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>ניהול תוכן</title><link rel="stylesheet" href="assets/styles.css"><script src="assets/content.js"></script></head><body><main class="container section"><h1>פאנל ניהול תוכן</h1><p>עריכת טקסטים, פרטי קשר ו־SEO ללא קוד.</p><form id="adminForm" class="card"></form><div class="actions"><button class="btn btn-primary" id="saveBtn">שמירה</button><button class="btn btn-secondary" id="resetBtn" type="button">איפוס לברירת מחדל</button></div><p id="msg"></p></main><script>
+const form=document.getElementById('adminForm');
+const msg=document.getElementById('msg');
+const fields=['brand','heroTitle','heroSubtitle','ctaPrimary','ctaSecondary','aboutShort','servicesTitle','leadMagnetTitle','faqTitle','contactEmail','contactPhone','whatsapp','seoTitleHome','seoDescriptionHome'];
+const c=SiteContent.getContent();
+['he','ru'].forEach(l=>{const h=document.createElement('h2');h.textContent=l==='he'?'עברית':'Русский';form.appendChild(h);fields.forEach(f=>{const label=document.createElement('label');label.textContent=f;const inp=document.createElement(f.includes('Subtitle')||f.includes('Description')||f.includes('aboutShort')?'textarea':'input');inp.name=l+'.'+f;inp.value=(c[l]&&c[l][f])||'';label.appendChild(inp);form.appendChild(label);});});
+document.getElementById('saveBtn').onclick=(e)=>{e.preventDefault();const n=SiteContent.getContent();new FormData(form).forEach((v,k)=>{const [l,f]=k.split('.');n[l][f]=v.toString();});SiteContent.saveContent(n);msg.textContent='נשמר בהצלחה';};
+document.getElementById('resetBtn').onclick=()=>{SiteContent.saveContent(SiteContent.defaultContent);location.reload();};
+</script></body></html>
